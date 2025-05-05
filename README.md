@@ -113,11 +113,10 @@ Ein datengetriebenes Dashboard zur Analyse und Darstellung von Unternehmens- und
 1. **Trendanalysen**: Umsatzentwicklung je Branche über Zeit
 2. **Top-Unternehmen je Branche**: Umsatz, Wachstum, Marktanteil (zeitfilterbar)
 3. **Käuferprofil je Branche**: Einkommen, Zahlungsmittel (Debit/Credit)
-4. **Naturkatastrophen-Risiko**: Geografische Lage der Händler
-5. **Relation zu Einwohnern pro Staat**
-6. **Online vs. stationär**: Kaufverhalten vergleichen
-7. **Durchschnittlicher Einkaufswert je Branche/Firma**
-8. **Zoom-Funktion**: Von Branche auf Firmendaten
+4. **Relation zu Einwohnern pro Staat**
+5. **Online vs. stationär**: Kaufverhalten vergleichen
+6. **Durchschnittlicher Einkaufswert je Branche/Firma**
+7. **Zoom-Funktion**: Von Landkarte auf Branchen-/Firmendaten
 
 ---
 
