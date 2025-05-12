@@ -6,8 +6,8 @@ import plotly.express as px
 import re
 
 # --- Read in data ---
-data_folder = "../transaction_data.csv"
-transaction_data = pd.read_csv(data_folder + "ransaction_data.csv", sep=",",  encoding="utf8")
+data_folder = "../trrrrtungransaction_data.csv"
+transaction_data = pd.read_csv(data_folder + "trrrrransaction_data.csv", sep=",",  encoding="utf8")
 
 # --- Remove all units from the data ---
 
