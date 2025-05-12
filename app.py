@@ -13,13 +13,14 @@ transaction_data = pd.read_csv(data_folder + "reduced_transaction_data.csv", sep
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-fig = go.Figure(data=[go.Table(
-    header=dict(values=list(transaction_data.columns),
-                fill_color='paleturquoise',
-                align='left'))
-])
-
-fig.show()
+app.layout = dbc.Container([
+    dbc.Row([
+        html.Div('Finance Table Transaction Data', className="text-primary text-center fs-3")
+    ]),
+    dbc.Row([
+        dash_table.DataTable(data=transaction_data.to_dict('records'), page_size=10, style_table={'overflowX': 'auto'}, id='tbl'),
+    ])
+], fluid=True)
 
 if __name__ == '__main__':
     app.run(debug=True)
