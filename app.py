@@ -6,8 +6,8 @@ import plotly.express as px
 import re
 
 # --- Read in data ---
-data_folder = "../assets/data/"
-nutriton_data = pd.read_csv(data_folder + "nutrition.csv", sep=",",  encoding="utf8")
+data_folder = "../reduced_transaction_data.csv"
+transaction_data = pd.read_csv(data_folder + "reduced_transaction_data.csv", sep=",",  encoding="utf8")
 
 # --- Remove all units from the data ---
 
@@ -25,11 +25,11 @@ def remove_unit(value):
 found_units = {}
 
 # iterate over all columns
-for column in nutriton_data.columns:
+for column in transaction_data.columns:
     # prepare a set for all units that are found in this column
     units = set()
     # search for units
-    for value in nutriton_data[column][1:]:  # skip first row
+    for value in transaction_data[column][1:]:  # skip first row
         unit = get_unit(value)
         if unit:
             units.add(unit)
@@ -37,7 +37,7 @@ for column in nutriton_data.columns:
     # if all rows have the same unit (i.e., only one unit was found), store the unit and remove it
     if len(units) == 1:
         found_units[column] = units.pop()
-        nutriton_data[column] = nutriton_data[column].apply(remove_unit)
+        transaction_data[column] = transaction_data[column].apply(remove_unit)
     elif len(units) > 1:
         print("More than one unit found in column " + column + ":")
         print(units)
@@ -53,7 +53,7 @@ for key in found_units.keys():
     
 # Calculate the top 10 Products in Vitamin C Property. (Aufgabe 3)
 #nutriton_data['vitamin_c'] = pd.to_numeric(nutriton_data['vitamin_c'], errors='coerce')
-top_10_vitamin_c = nutriton_data.nlargest(10, 'vitamin_c')
+top_10_vitamin_c = transaction_data.nlargest(10, 'vitamin_c')
 
 # --- Initialize the app ---
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -145,7 +145,7 @@ app.layout = dbc.Container([
         html.Div('Nutritional values for common foods and products', className="text-primary text-center fs-3")
     ]),
     dbc.Row([
-        dash_table.DataTable(data=nutriton_data.to_dict('records'), page_size=10, style_table={'overflowX': 'auto'}, id='tbl'),
+        dash_table.DataTable(data=transaction_data.to_dict('records'), page_size=10, style_table={'overflowX': 'auto'}, id='tbl'),
     ]),
     dbc.Row([
         dbc.Tabs([
@@ -161,7 +161,7 @@ app.layout = dbc.Container([
 @callback(Output('tbl_out_1', 'children'), Input('tbl', 'active_cell'))
 def update_graphs(active_cell):
     # first we print the value of the selected cell, second we print the product name. 
-    return 'Value: ' + str(nutriton_data.iloc[active_cell['row'], active_cell['column']]) + ', Name: ' + str(nutriton_data.iloc[active_cell['row'], 1]) if active_cell else "Click the table"
+    return 'Value: ' + str(transaction_data.iloc[active_cell['row'], active_cell['column']]) + ', Name: ' + str(transaction_data.iloc[active_cell['row'], 1]) if active_cell else "Click the table"
 
 @callback(Output('tbl_out_2', 'children'), Input('tbl', 'active_cell'))
 def update_graphs(active_cell):
@@ -178,10 +178,10 @@ def update_graphs(active_cell):
 )
 def update_scatterplot(x_value, y_value):
     if x_value != y_value:
-        fig=px.scatter(nutriton_data, x=x_value, y=y_value, color="niacin", hover_data=['name'], trendline="ols")
+        fig=px.scatter(transaction_data, x=x_value, y=y_value, color="niacin", hover_data=['name'], trendline="ols")
         fig.update_layout()
         return fig, False, x_value, y_value
-    fig=px.scatter(nutriton_data, x='sodium', y='vitamin_c', color="niacin", hover_data=['name'], trendline="ols")
+    fig=px.scatter(transaction_data, x='sodium', y='vitamin_c', color="niacin", hover_data=['name'], trendline="ols")
     return fig, True, 'sodium', 'vitamin_c'
 
 # Callback for histrogram
@@ -190,7 +190,7 @@ def update_scatterplot(x_value, y_value):
     Input(component_id='histo-controls', component_property='value')
 )
 def update_graph(col_chosen):
-    fig=px.histogram(nutriton_data, x=col_chosen,
+    fig=px.histogram(transaction_data, x=col_chosen,
         title=col_chosen.capitalize() + (" (" + found_units[col_chosen] + ")" if col_chosen in found_units else ""),
         opacity=0.75,nbins=30)
     fig.update_layout(bargap=0.2)

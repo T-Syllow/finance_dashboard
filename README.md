@@ -1,5 +1,11 @@
 # 📊 Projektplan – Visualisierungsdashboard für BlackRock
 
+## GIT PUSHING
+
+git add .
+git commit -m ""
+git push
+
 ## 🧩 Aufgabenstellung
 
 ### 🔍 Was wird visualisiert?
