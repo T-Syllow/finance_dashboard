@@ -1,24 +1,24 @@
 ﻿import pandas as pd
 import re
 
-# --- Read in data ---
-input_path = "C:/Users/skugl/Documents/HFT/WIP2/finance_dashboard/´cards_data.csv"
-output_path = "C:/Users/skugl/Documents/HFT/WIP2/finance_dashboard/cleaned_cards_data.csv"
+# --- Read in Data --- Hier nur CSV Datei ändern
+input_path = "../oldData/cards_data.csv"
+output_path = "../newData/cleaned_cards_data.csv"
 
 transaction_data = pd.read_csv(input_path, sep=",", encoding="utf8")
 
-# --- Check if value looks like a date or time ---
+# --- Datums und Uhrzeit Check ---
 def is_date_or_time(value):
     value = str(value).strip()
     date_patterns = [
-        r"\d{1,2}\.\d{1,2}\.\d{2,4}",     # z. B. 12.05.2023 oder 1.1.23
-        r"\d{4}-\d{1,2}-\d{1,2}",         # z. B. 2023-05-12
-        r"\d{1,2}:\d{2}(:\d{2})?",        # z. B. 14:30 oder 14:30:00
+        r"\d{1,2}\.\d{1,2}\.\d{2,4}",     # 12.05.2023 oder 1.1.23
+        r"\d{4}-\d{1,2}-\d{1,2}",         # 2023-05-12
+        r"\d{1,2}:\d{2}(:\d{2})?",        # 14:30 oder 14:30:00
         r"\d{1,2}/\d{4}",                 # 06/2025
     ]
     return any(re.fullmatch(p, value) for p in date_patterns)
 
-# --- Extract unit (either at start or end) ---
+# --- Extract unit ---
 def get_unit(value):
     if is_date_or_time(value):
         return ''
@@ -31,17 +31,17 @@ def get_unit(value):
                 return g
     return ''
 
-# --- Remove unit and '+' sign (but keep '-') ---
+# --- Units entfernen aber "-" behalten ---
 def remove_unit_and_sign(value):
     value_str = str(value).strip()
 
     if is_date_or_time(value_str):
         return value  # Datum/Uhrzeit bleibt
 
-    # Entferne führende oder folgende Einheiten inkl. optionalem Vorzeichen
+    # Entferne führende oder folgende Einheiten
     value_no_unit = re.sub(r'(^[\s]*[-+]?[\$€a-zA-Z%]+[\s]*)|([\s]*[\$€a-zA-Z%]+[\s]*$)', '', value_str)
 
-    # '+' entfernen, '-' beibehalten
+    # '+' entfernen
     if value_no_unit.startswith('+'):
         value_no_unit = value_no_unit[1:]
 
@@ -50,7 +50,7 @@ def remove_unit_and_sign(value):
     except ValueError:
         return value  # Falls Umwandlung fehlschlägt
 
-# --- Spaltenverarbeitung ---
+# --- Spaltenloop ---
 found_units = {}
 
 for column in transaction_data.columns:
@@ -71,7 +71,7 @@ for column in transaction_data.columns:
     else:
         print("Keine Einheit gefunden in Spalte " + column + ".")
 
-# --- Dropdown-Spalten (z. B. für x-/y-Achsen) ---
+# --- Dropdown-Spalten ---
 column_titles_with_num = list(found_units.keys())
 
 # --- Speichere bereinigte CSV ---
