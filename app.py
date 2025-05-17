@@ -1,4 +1,5 @@
 # Imports
+from urllib.request import urlopen
 from dash import Dash, html, dash_table, Input, Output, callback, dcc
 import pandas as pd
 import dash_bootstrap_components as dbc
@@ -19,7 +20,16 @@ app.layout = dbc.Container([
     ]),
     dbc.Row([
         dash_table.DataTable(data=transaction_data.to_dict('records'), page_size=10, style_table={'overflowX': 'auto'}, id='tbl'),
-    ])
+    ]),
+    dbc.Row([
+        px.choropleth(transaction_data, geojson=counties, locations='amount', color='amount',
+                           color_continuous_scale="Viridis",
+                           range_color=(0, 12),
+                           scope="usa",
+                           labels={'amount':'amount'}
+                          ),
+
+    ]),
 ], fluid=True)
 
 if __name__ == '__main__':
