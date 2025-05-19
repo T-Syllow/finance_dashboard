@@ -9,7 +9,7 @@ import json
 with open("mcc_codes.json", "r") as f:
     mcc_codes = json.load(f)
 
-branchen_liste = list(mcc_codes.values())
+branchen_liste = list(mcc_codes.values())    #
 
 
 months = pd.date_range(end=datetime.today(), periods=36, freq='ME')
