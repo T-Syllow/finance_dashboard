@@ -23,8 +23,9 @@ with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
     mcc_dict = json.load(f)
 mcc_codes_data = pd.DataFrame(list(mcc_dict.items()), columns=['mcc_code', 'description'])
 
-# alle Händler bei ihrer ID als Liste
-merchants = transaction_data['merchant_id'].unique().tolist()
+
+# alle Händler
+merchants = transaction_data['merchant_id'].unique()
 
 # Jede Transaktion hat eine Merchant_id und einen mcc_code --> Wertpaar als neuer Dataframe
 merchant_mcc_relations = transaction_data[['merchant_id', 'mcc']].copy()
@@ -33,7 +34,7 @@ merchant_mcc_relations = transaction_data[['merchant_id', 'mcc']].copy()
 merchant_categories = mcc_codes_data['description'].unique().tolist()
 
 # Händler Kategorie Codes (ID)
-merchant_category_codes = mcc_codes_data['mcc_code'].unique()
+merchant_branche_codes = mcc_codes_data['mcc_code'].unique()
 
 state_counts = transaction_data.groupby("merchant_state").size().reset_index(name="transaction_count")
 
@@ -67,13 +68,27 @@ app.layout = dbc.Container([
                 dcc.Graph(figure=map)
             ], width=6),
         dbc.Col([
+            html.Div(
+                html.Ul(
+                    id="unternehmen_liste"
+                ),
+                id="unternehmen_liste_container",
+                style={"position": "absolute", "top": 0, "right": 0, "height": "100%", "zIndex": "1", "overflowY": "scroll"},
+            ),
             dbc.Row([
-                dbc.ListGroup([],numbered=True, id="top_list")
-            ]),
+                dbc.Button("Alle anzeigen", color="primary", className="me-1 col-4", id="show_unternehmen_btn"),
+            ], className="d-flex justify-content-center"),
             dbc.Row([
-                dbc.ListGroup([],numbered=True, id="flop_list")
-            ])
-            ], width=6),
+                dbc.Row([
+                    dbc.Label('Top 5', className="fs-2 text"),
+                    dbc.ListGroup(numbered=True, id="top_list")
+                ]),
+                dbc.Row([
+                    dbc.Label('Flop 5', className="fs-2 text"),
+                    dbc.ListGroup(numbered=True, id="flop_list")
+                ])
+            ], id="right_section")
+        ], width=6),
     ]),
 ], fluid=True)
 
@@ -81,18 +96,170 @@ app.layout = dbc.Container([
     Output('entity_dropdown', 'options'),
     Input('category_dropdown', 'value')
 )
-def update_entity_dropdown(category):
-    if category == 'Branchen':
-        return merchant_categories
-    return merchants
+def update_entity_dropdown(branche):
+    if branche == 'Branchen':
+        categories = [
+            {"label": cat, "value": str(mcc)}
+            for mcc, cat in mcc_codes_data[["mcc_code", "description"]].drop_duplicates().values
+        ]
+        return categories
+    return merchants.tolist()
         
-# @callback(
-#     Output('top_list', 'children'),
-#     Input('entity_dropdown', 'value')
-# )
-# def update_top_list(merchant):
-#     if merchant 
+@callback(
+    Output('right_section', 'children'),
+    Input('category_dropdown', 'value'),
+    Input('entity_dropdown', 'value')
+)
+def update_right_section(category, entity_value):
+    if category == 'Unternehmen' and entity_value:
+        merchant_id = int(entity_value)
+        df_merchant = transaction_data[transaction_data['merchant_id'] == merchant_id]
+
+        if df_merchant.empty:
+            return dbc.Alert("Keine Daten für dieses Unternehmen verfügbar.", color="warning")
+
+        # Umsatz berechnen
+        total_revenue = df_merchant['amount'].sum()
+
+        # Niederlassungen: Stadt + Bundesstaat
+        standorte = (
+            df_merchant[['merchant_city', 'merchant_state']]
+            .drop_duplicates()
+            .sort_values(by=['merchant_state', 'merchant_city'])
+        )
+
+        # Formatierung der Standorte als Bullet-List
+        standort_liste = html.Ul([
+            html.Li(f"{row['merchant_city']}, {row['merchant_state']}")
+            for _, row in standorte.iterrows()
+        ])
+
+        return dbc.Card([
+            dbc.CardHeader(f"Händler-ID: {merchant_id}"),
+            dbc.CardBody([
+                html.H5("Unternehmensprofil", className="card-title"),
+                html.P(f"Gesamtumsatz: {total_revenue:.2f} €", className="card-text"),
+                html.P(f"Anzahl Transaktionen: {len(df_merchant)}", className="card-text"),
+                html.H6("Niederlassungen:"),
+                standorte.__len__(),
+                #standort_liste
+            ])
+        ], color="light", outline=True)
+
+    # Wenn "Branchen" gewählt ist -> Top/Flop-Liste
+    return dbc.Col([
+        dbc.Row([
+            dbc.Label('Top 5', className="fs-2 text"),
+            dbc.ListGroup(numbered=True, id="top_list")
+        ]),
+        dbc.Row([
+            dbc.Label('Flop 5', className="fs-2 text"),
+            dbc.ListGroup(numbered=True, id="flop_list")
+        ])
+    ])
+            
+
+@callback(
+    Output('top_list', 'children'),
+    Input('entity_dropdown', 'value'),
+    Input('category_dropdown', 'value')
+)
+def update_topList(branche, category):
+    if (category == 'Branchen'):
+        branche = transaction_data.query(f"mcc == {branche}")
+        # Gruppiere nach merchant_id und summiere den Umsatz (amount)
+        umsatz_pro_merchant = (
+            branche.groupby("merchant_id")['amount']
+            .sum()
+            .reset_index()
+            .rename(columns={"amount": "total_revenue"})
+            .sort_values(by="total_revenue", ascending=False)
+        )
+        top_5 = umsatz_pro_merchant.nlargest(5, 'total_revenue')
+        return [
+            dbc.ListGroupItem(
+                f" Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} €"
+            )
+            for i, row in top_5.iterrows()
+        ]
     
+@callback(
+    Output('flop_list', 'children'),
+    Input('entity_dropdown', 'value'),
+    Input('category_dropdown', 'value')
+)
+def update_flopList(branche, category):
+    if (category == 'Branchen'):
+        branche = transaction_data.query(f"mcc == {branche}")
+        # Gruppiere nach merchant_id und summiere den Umsatz (amount)
+        umsatz_pro_merchant = (
+            branche.groupby("merchant_id")['amount']
+            .sum()
+            .reset_index()
+            .rename(columns={"amount": "total_revenue"})
+            .sort_values(by="total_revenue", ascending=False)
+        )
+        flop_5 = umsatz_pro_merchant.nsmallest(5, 'total_revenue')
+        return [
+            dbc.ListGroupItem(
+                f" Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} €"
+            )
+            for i, row in flop_5.iterrows()
+        ]
+    
+@callback(
+    Output("unternehmen_liste", "children"),       
+    Input("show_unternehmen_btn", "n_clicks"),  
+    Input('category_dropdown', 'value'), 
+    Input('entity_dropdown', 'value'), 
+    prevent_initial_call=True
+)
+def on_click_update(n_clicks, category, entity):
+    if category != 'Branchen' or not entity:
+        return []
+
+    # Filtere alle Transaktionen für die gewählte Branche (MCC-Code)
+    df_branche = transaction_data[transaction_data['mcc'] == int(entity)]
+
+    # Umsatz + Transaktionsanzahl je Händler berechnen
+    metrics = (
+        df_branche.groupby("merchant_id")["amount"]
+        .agg(total_revenue="sum", transaction_count="count")
+        .reset_index()
+    )
+
+    # Standorte je Händler extrahieren
+    locations_map = (
+        df_branche.groupby("merchant_id")[["merchant_city", "merchant_state"]]
+        .apply(lambda x: list(set(zip(x["merchant_city"], x["merchant_state"]))))
+        .to_dict()
+    )
+
+    # Locations ins DataFrame einfügen
+    metrics["locations"] = metrics["merchant_id"].map(locations_map)
+
+    # Karten erzeugen
+    cards = []
+    for _, row in metrics.iterrows():
+        standort_liste = html.Ul([
+            html.Li(f"{city}, {state}") for city, state in row["locations"]
+        ])
+
+        card = html.Li(
+            dbc.Card(
+                dbc.CardBody([
+                    html.H5(f"Händler-ID: {row['merchant_id']}", className="card-title"),
+                    html.P(f"Gesamtumsatz: {row['total_revenue']:.2f} €", className="card-text"),
+                    html.P(f"Anzahl Transaktionen: {row['transaction_count']}", className="card-text"),
+                    html.H6("Niederlassungen:"),
+                    standort_liste.__len__()
+                ]),
+                color="success", inverse=True
+            )
+        )
+        cards.append(card)
+
+    return cards
 
 if __name__ == '__main__':
     app.run(debug=True)
