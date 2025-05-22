@@ -14,6 +14,12 @@ with urlopen('https://raw.githubusercontent.com/plotly/datasets/master/geojson-c
 
 counties["features"][0]
 
+country_config = {
+    'scope': 'usa',
+    'geo_column': 'merchant_state',
+    'location_mode': 'USA-states'
+}
+
 # --- Read in data ---
 data_folder = "newData/"
 transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_10k.csv", sep=",",  encoding="utf8")
@@ -40,12 +46,6 @@ state_counts = transaction_data.groupby("merchant_state").size().reset_index(nam
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-map = px.choropleth(transaction_data, geojson=counties, locations='mcc', color='mcc',
-                           color_continuous_scale="Viridis",
-                           scope="usa",
-                           labels={'state_counts':'state_counts'}
-                          )
-map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
 
 app.layout = dbc.Container([
     dbc.Row([
@@ -54,8 +54,23 @@ app.layout = dbc.Container([
     dbc.Row([
         dbc.Col([
             dbc.Col([
-                dcc.Dropdown(['1 Monat', '3 Monate', '6 Monate', '1 Jahr', '2 Jahre', '3 Jahre'], 'Quartal', id='zeitraum_dropdown', className="")
-            ], width=12, className="gap-2"),
+                dcc.DatePickerRange(
+                    id='date-range-start',
+                    min_date_allowed=transaction_data['date'].min(),
+                    max_date_allowed=transaction_data['date'].max(),
+                    start_date=transaction_data['date'].min(),
+                    end_date=transaction_data['date'].max(),
+                    className=""
+                ),
+                dcc.DatePickerRange(
+                    id='date-range-end',
+                    min_date_allowed=transaction_data['date'].min(),
+                    max_date_allowed=transaction_data['date'].max(),
+                    start_date=transaction_data['date'].min(),
+                    end_date=transaction_data['date'].max(),
+                    className=""
+                ),
+            ], width=12, className="gap-5" ,id='zeitraum_container'),
             dbc.Col([
                 dbc.Col([
                     dcc.Dropdown(['Unternehmen', 'Branchen'], 'Branchen', id='category_dropdown')
@@ -68,8 +83,8 @@ app.layout = dbc.Container([
     ], className="navbar"),
     dbc.Row([
         dbc.Col([
-                dcc.Graph(figure=map)
-            ], width=6, className="d-flex justify-content-center align-items-center"),
+                
+            ], width=6, className="d-flex justify-content-center align-items-center", id="map-container"),
         dbc.Col([
             # html.Div(
             #     html.Ul(
@@ -86,6 +101,60 @@ app.layout = dbc.Container([
         ], width=6),
     ]),
 ], fluid=True, className="body")
+
+
+#ZUGEWIESEN AN -------- TOMMY --------
+# TODOS: wenn "Branche" ausgewählt wird: alle Unternehmen in einer Branche
+# 1. Ist Umsatz auf Landkarte anzeigen
+# 2. Vergleich Umsatz (damals/heute) anzeigen in Prozent als Tooltip.
+
+#ZUGEWIESEN AN -------- TOMMY --------
+# TODOS: wenn "Unternehmen" ausgewählt wird: alle Standorte (States) eines Unternehmens
+# 1. Unternehmensniederlassungen (States) nach Ist Umsatz einfärben
+# 2. Vergleich Umsatz (damals/heute) anzeigen in Prozent als Tooltip.
+@callback(
+    Output('map-container', 'children'),
+    Input('date-range-start', 'start_date'),
+    Input('date-range-start', 'end_date'),
+    #Input('date-range-end', 'start_date'),
+    #Input('date-range-end', 'end_date'),
+    Input('entity_dropdown', 'value'),
+)
+def renderMap(start_date_first, end_date_first, mcc):
+
+# BRANCHE: 
+# 1. Ist Umsatz(gesamt) der Branche - in jedem Bundesstaat - auf der Landkarte anzeigen:
+
+    df_branche = transaction_data[transaction_data['mcc'] == int(mcc)]
+    df = df_branche
+    # Transaktionen im Zeitraum zwischen Start und End -- ERSTER DATEPICKER
+    df['date'] = pd.to_datetime(df['date'])
+    filtered_transaction_data = df[(df['date'] >= pd.to_datetime(start_date_first)) & (df['date'] <= pd.to_datetime(end_date_first))]
+
+    geo_col = country_config['geo_column']
+    scope = country_config['scope']
+    location_mode = country_config.get('location_mode', None)
+
+    #marketcap = filtered_transaction_data.groupby(geo_col).size().reset_index(name='transaction_count')
+    marketcap = filtered_transaction_data.groupby(geo_col)['amount'].sum().reset_index(name="marketcap")
+    marketcap["marketcap"] = marketcap["marketcap"]
+
+    fig = px.choropleth(
+            marketcap,
+            locations=geo_col,
+            locationmode=location_mode,
+            color='marketcap',
+            color_continuous_scale="Blues",
+            scope=scope,
+            labels={geo_col: 'Bundesstaat', 'marketcap': 'Marktkapitalisierung'},
+            hover_data={geo_col: True, 'marketcap': True}
+        )
+
+    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+
+    return dcc.Graph(figure=fig)
+
+
 
 @callback(
     Output('entity_dropdown', 'options'),
