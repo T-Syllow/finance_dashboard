@@ -1,0 +1,31 @@
+.test {
+    font-size: 80px;
+}
+
+.body {
+    height: 100vh;
+}
+
+.navbar {
+    border-style: solid;
+    border-width: 0.5px;
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+.filterbar {
+    border-right: solid;
+    border-width: 0.5px;
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+.ranklist_item {
+    border: none;
+}
+
+.ranklist {
+    
+}
+
+.ranklist_container {
+    margin-left: 100px;
+}
