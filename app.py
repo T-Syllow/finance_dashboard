@@ -8,6 +8,7 @@ import plotly.express as px
 import re
 import plotly.graph_objects as go
 import pandas as pd
+import numpy as np
 
 with urlopen('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json') as response:
     counties = json.load(response)
@@ -172,9 +173,11 @@ def update_entity_dropdown(branche):
 @callback(
     Output('right_section', 'children'),
     Input('category_dropdown', 'value'),
-    Input('entity_dropdown', 'value')
+    Input('entity_dropdown', 'value'),
+    Input('date-range-start', 'start_date'),
+    Input('date-range-start', 'end_date'),
 )
-def update_right_section(category, entity_value):
+def update_right_section(category, entity_value, start_date_first, end_date_first):
     if category == 'Unternehmen' and entity_value:
         merchant_id = int(entity_value)
         df_merchant = transaction_data[transaction_data['merchant_id'] == merchant_id]
@@ -210,21 +213,79 @@ def update_right_section(category, entity_value):
             ])
         ], color="light", outline=True)
 
-    branche = transaction_data.query(f"mcc == {entity_value}")
-    # Gruppiere nach merchant_id und summiere den Umsatz (amount)
+    df_branche = transaction_data.query(f"mcc == {entity_value}")
+
+    df = df_branche
+
+    # Transaktionen im Zeitraum zwischen Start und End -- ERSTER DATEPICKER
+    df['date'] = pd.to_datetime(df['date'])
+    filtered_transaction_data = df[(df['date'] >= pd.to_datetime(start_date_first)) & (df['date'] <= pd.to_datetime(end_date_first))]
+    filtered_transaction_data['date'] = pd.to_datetime(filtered_transaction_data['date']).dt.date
+    start_date_first = pd.to_datetime(start_date_first).date()
+    end_date_first = pd.to_datetime(end_date_first).date()
+
+    if filtered_transaction_data.empty: 
+        return dbc.Col([
+            dbc.Row([
+                dbc.Alert('keine Daten in diesem Zeitraum verfügbar!', className="fs-5 text", color="danger"),
+            ]),
+        ], className="ranklist_container p-4")
+    
+    print(filtered_transaction_data['date'])
+    print('Inserted Date format: ######## ', start_date_first)
+
+    umsatz_am_start = (
+        filtered_transaction_data[filtered_transaction_data['date'] == start_date_first]
+        .groupby('merchant_id')['amount']
+        .sum()
+        .reset_index(name="start_revenue")
+    )
+
+    for i, row in umsatz_am_start.iterrows():
+        print(f"Händler {row['merchant_id']}: start_revenue = {row['start_revenue']}")
+    
+    umsatz_am_ende = (
+        filtered_transaction_data[filtered_transaction_data['date'] == end_date_first]
+        .groupby('merchant_id')['amount']
+        .sum()
+        .reset_index(name="end_revenue")
+    )
+
+    umsatz_vergleich = pd.merge(
+        umsatz_am_start,
+        umsatz_am_ende,
+        'left',
+        'merchant_id'
+    ).fillna(0)
+
+    umsatz_vergleich['veränderung'] = np.where(
+        umsatz_vergleich['start_revenue'] == 0,
+        np.nan,
+        ((umsatz_vergleich['end_revenue'] - umsatz_vergleich['start_revenue']) / umsatz_vergleich['start_revenue']) * 100
+    )
+
+    #Gruppiere nach merchant_id und summiere den Umsatz (amount)
     umsatz_pro_merchant = (
-        branche.groupby("merchant_id")['amount']
+        filtered_transaction_data.groupby("merchant_id")['amount']
         .sum()
         .reset_index()
         .rename(columns={"amount": "total_revenue"})
         .sort_values(by="total_revenue", ascending=False)
     )
+
+    umsatz_pro_merchant = pd.merge(
+        umsatz_pro_merchant,
+        umsatz_vergleich,
+        'left',
+        'merchant_id'
+    )
+
     top_5 = umsatz_pro_merchant.nlargest(5, 'total_revenue')
     flop_5 = umsatz_pro_merchant.nsmallest(5, 'total_revenue')
 
     top_content = [
         dbc.ListGroupItem(
-            f" Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} €"
+            f" Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} € - Veränderung: {row['veränderung']} %"
         , className="ranklist_item")
         for i, row in top_5.iterrows()
     ]
