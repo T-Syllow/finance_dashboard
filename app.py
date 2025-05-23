@@ -221,8 +221,8 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
     df['date'] = pd.to_datetime(df['date'])
     filtered_transaction_data = df[(df['date'] >= pd.to_datetime(start_date_first)) & (df['date'] <= pd.to_datetime(end_date_first))]
     filtered_transaction_data['date'] = pd.to_datetime(filtered_transaction_data['date']).dt.date
-    start_date_first = pd.to_datetime(start_date_first).date()
-    end_date_first = pd.to_datetime(end_date_first).date()
+    start_date_first = pd.to_datetime(start_date_first).date() 
+    end_date_first = pd.to_datetime(end_date_first).date() 
 
     if filtered_transaction_data.empty: 
         return dbc.Col([
@@ -232,7 +232,8 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
         ], className="ranklist_container p-4")
     
     print(filtered_transaction_data['date'])
-    print('Inserted Date format: ######## ', start_date_first)
+    print('start Date format: ######## ', start_date_first)
+    print('end Date format: ######## ', end_date_first)
 
     umsatz_am_start = (
         filtered_transaction_data[filtered_transaction_data['date'] == start_date_first]
@@ -241,15 +242,20 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
         .reset_index(name="start_revenue")
     )
 
+    # for i, row in umsatz_am_start.iterrows():
+    #     print(f"Händler {row['merchant_id']}: start_revenue = {row['start_revenue']}")
     for i, row in umsatz_am_start.iterrows():
         print(f"Händler {row['merchant_id']}: start_revenue = {row['start_revenue']}")
     
     umsatz_am_ende = (
-        filtered_transaction_data[filtered_transaction_data['date'] == end_date_first]
+        filtered_transaction_data[(filtered_transaction_data['date'] == end_date_first)]
         .groupby('merchant_id')['amount']
         .sum()
         .reset_index(name="end_revenue")
     )
+    print('endDate: Selected ==> ', end_date_first)
+    for i, row in umsatz_am_ende.iterrows():
+        print(f"Händler {row['merchant_id']}: end_revenue = {row['end_revenue']}")
 
     umsatz_vergleich = pd.merge(
         umsatz_am_start,
@@ -285,7 +291,7 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
 
     top_content = [
         dbc.ListGroupItem(
-            f" Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} € - Veränderung: {row['veränderung']} %"
+            f" Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} € - Veränderung: {row['veränderung']:.2f} %"
         , className="ranklist_item")
         for i, row in top_5.iterrows()
     ]
