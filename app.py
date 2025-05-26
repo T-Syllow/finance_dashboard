@@ -103,7 +103,12 @@ app.layout = dbc.Container([
         ], width=6),
     ]),
     dbc.Col([
-
+        dbc.Row([
+            dbc.Col([
+                html.H2("", id="branche_title"),
+                html.Img(src="./assets/x.png", className="icon1")
+            ], width=12, className="p-5 d-flex justify-content-between"),
+        ])
     ], width=12, className="h-100 position-absolute left-0", id="popup")
 ], fluid=True, className="body position-relative")
 
@@ -388,6 +393,15 @@ def toggle_class(n, current_class):
         return "h-100 position-absolute left-0 col-12 top-0-pixel"
     else:
         return "h-100 position-absolute left-0 col-12 top-100-percent"
+    
+@app.callback(
+    Output("branche_title", "children"),
+    Input("category_dropdown", "value"),
+    Input("entity_dropdown", "value"),
+)
+def update_detailView(category, entity):
+    if category == 'Branchen':
+        return entity
 
 if __name__ == '__main__':
     app.run(debug=True)

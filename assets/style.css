@@ -5,6 +5,7 @@
 .body {
     height: 100vh;
     overflow: hidden;
+    --bs-gutter-x: 0rem !important;
 }
 
 .navbar {
@@ -32,8 +33,19 @@
 }
 
 #popup {
-    background-color: rgba(0,0,0,0.8);
+    background-color: white;
     transition: 525ms ease-in-out;
+}
+
+.icon1 {
+    width: 32px;
+    height: 32px;
+    transition: 225ms ease-in-out;
+}
+
+.icon1:hover {
+    cursor: pointer;
+    opacity: 50%;
 }
 
 .top-100-percent {
