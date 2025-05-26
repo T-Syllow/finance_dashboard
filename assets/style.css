@@ -4,6 +4,7 @@
 
 .body {
     height: 100vh;
+    overflow: hidden;
 }
 
 .navbar {
@@ -28,4 +29,17 @@
 
 .ranklist_container {
     margin-left: 100px;
+}
+
+#popup {
+    background-color: rgba(0,0,0,0.8);
+    transition: 525ms ease-in-out;
+}
+
+.top-100-percent {
+    top: 100%;
+}
+
+.top-0-pixel {
+    top: 0;
 }

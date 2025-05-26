@@ -1,7 +1,7 @@
 # Imports
 import json
 from urllib.request import urlopen
-from dash import Dash, html, dash_table, Input, Output, callback, dcc
+from dash import Dash, State, html, dash_table, Input, Output, callback, dcc
 import pandas as pd
 import dash_bootstrap_components as dbc
 import plotly.express as px
@@ -48,10 +48,7 @@ state_counts = transaction_data.groupby("merchant_state").size().reset_index(nam
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 
-app.layout = dbc.Container([
-    dbc.Row([
-        html.Div('Finance Table Transaction Data', className="text-primary text-center fs-3")
-    ]),
+app.layout = dbc.Container([ 
     dbc.Row([
         dbc.Col([
             dbc.Col([
@@ -81,6 +78,9 @@ app.layout = dbc.Container([
                 ], width=8),
             ], width=12, className="d-flex py-2 gap-2 justify-content-start"),
         ], width=6, className="py-3 filterbar"),
+        dbc.Col([
+            dbc.Button('Detailansicht anzeigen', className='btn primary', id="toggle-button" , n_clicks=0)
+        ])
     ], className="navbar"),
     dbc.Row([
         dbc.Col([
@@ -98,10 +98,14 @@ app.layout = dbc.Container([
             #     dbc.Button("Alle anzeigen", color="primary", className="me-1 col-4", id="show_unternehmen_btn"),
             # ], className="d-flex justify-content-center"),
             dbc.Row([
-            ], id="right_section")
+            
+            ], id="right_section"),
         ], width=6),
     ]),
-], fluid=True, className="body")
+    dbc.Col([
+
+    ], width=12, className="h-100 position-absolute left-0", id="popup")
+], fluid=True, className="body position-relative")
 
 
 #ZUGEWIESEN AN -------- TOMMY --------
@@ -369,6 +373,21 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
 #         cards.append(card)
 
 #     return cards
+
+
+# ---- CSS Gimmics hinzufügen und entfernen hier ----
+
+@app.callback(
+    Output("popup", "className"),
+    Input("toggle-button", "n_clicks"),
+    State("popup", "className")
+)
+def toggle_class(n, current_class):
+    print(current_class)
+    if "top-100-percent" in current_class:
+        return "h-100 position-absolute left-0 col-12 top-0-pixel"
+    else:
+        return "h-100 position-absolute left-0 col-12 top-100-percent"
 
 if __name__ == '__main__':
     app.run(debug=True)
