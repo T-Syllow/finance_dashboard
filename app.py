@@ -30,7 +30,6 @@ with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
     mcc_dict = json.load(f)
 mcc_codes_data = pd.DataFrame(list(mcc_dict.items()), columns=['mcc_code', 'description'])
 
-
 # alle Händler
 merchants = transaction_data['merchant_id'].unique()
 
@@ -405,22 +404,36 @@ def toggle_class(n1, n2, current_class):
     Output("detail-view", "children"),
     Input("category_dropdown", "value"),
     Input("entity_dropdown", "value"),
+    Input("date-range-start", "start_date"),
+    Input("date-range-start", "end_date"),
 )
-def render_detailview(category, entity):
+def render_detailview(category, entity, start_date_first, end_date_first):
     if category == 'Branchen':
-        branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
+        transaction_data['date'] = pd.to_datetime(transaction_data['date'])
+        time_transaction_data = transaction_data[(transaction_data['date'] >= pd.to_datetime(start_date_first)) & (transaction_data['date'] <= pd.to_datetime(end_date_first))]
+        branchen_transaktionen = time_transaction_data[time_transaction_data['mcc'] == int(entity)]
         branchen_transaktionen["year"] = pd.to_datetime(branchen_transaktionen["date"]).dt.year 
         umsatz_Jahr_Merchant = branchen_transaktionen.groupby(["year","merchant_id"])["amount"].sum().reset_index(name="Umsatz_im_Jahr")
-
-        kpis = [{'Marktkapitalisierung': 100000000},
-                {'durchschn. Transaktionshöhe': 380.20},
-                {'durchschn. Transaktionen pro Käufer': 100000000},
-                {'Umsatzwachstum (%)': 87.32},
-                {'Consumer Money Spent (%)': 100000000},
-                {'Unique Customers': 2102},
-            ]
         
-        fig1 = px.line(umsatz_Jahr_Merchant, x='year', y='Umsatz_im_Jahr', color='merchant_id', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
+        umsatz_pro_merchant = umsatz_Jahr_Merchant.groupby("merchant_id")["Umsatz_im_Jahr"].sum().reset_index(name="gesamtumsatz")
+
+        top_5 = umsatz_pro_merchant.nlargest(5, 'gesamtumsatz')
+        flop_5 = umsatz_pro_merchant.nsmallest(5, 'gesamtumsatz')
+
+        umsatz_Jahr_Merchant_top = umsatz_Jahr_Merchant[umsatz_Jahr_Merchant['merchant_id'].isin(top_5['merchant_id'])]
+        umsatz_Jahr_Merchant_flop = umsatz_Jahr_Merchant[umsatz_Jahr_Merchant['merchant_id'].isin(flop_5['merchant_id'])]
+
+        kpis = [
+            {'Marktkapitalisierung': 100000000},
+            {'durchschn. Transaktionshöhe': 380.20},
+            {'durchschn. Transaktionen pro Käufer': 100000000},
+            {'Umsatzwachstum (%)': 87.32},
+            {'Consumer Money Spent (%)': 100000000},
+            {'Unique Customers': 2102},
+        ]
+        
+        fig1 = px.line(umsatz_Jahr_Merchant_top, x='year', y='Umsatz_im_Jahr', color='merchant_id', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
+        fig2 = px.line(umsatz_Jahr_Merchant_flop, x='year', y='Umsatz_im_Jahr', color='merchant_id', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
 
         return [
             dbc.Col([
@@ -441,14 +454,26 @@ def render_detailview(category, entity):
             ], width=5, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
             dbc.Col([
                 dbc.Col([
-                    dcc.Graph(figure=fig1)
+                    dbc.Card(
+                        [
+                            dbc.CardHeader(
+                                dbc.Tabs(
+                                    [
+                                        dbc.Tab(dcc.Graph(figure=fig1, id="card-content",className="card-text"),label="Top 5", tab_id="tab-1"),
+                                        dbc.Tab(dcc.Graph(figure=fig2, id="card-content",className="card-text"),label="Flop 5", tab_id="tab-2"),
+                                    ],
+                                    id="card-tabs",
+                                    active_tab="tab-1",
+                                )
+                            ),
+                        ]
+                    ),
                 ], width=12, className="detail-view-right-section-1"),
                 dbc.Col([
                     html.Div("Persona")
                 ], width=12, className="detail-view-right-section-2"),
             ], width=7, className="detail-view-right-section")
         ]
-
     
 @app.callback(
     Output("branche_title", "children"),
