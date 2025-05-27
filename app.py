@@ -22,7 +22,7 @@ country_config = {
 }
 
 # --- Read in data ---
-data_folder = "newData/"
+data_folder = "../newData/"
 transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_10k.csv", sep=",",  encoding="utf8")
 cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv", sep=",",  encoding="utf8")
 users_data = pd.read_csv(data_folder + "cleaned_users_data.csv", sep=",",  encoding="utf8")
@@ -84,7 +84,7 @@ app.layout = dbc.Container([
     dbc.Row([
         dbc.Col([
                 
-            ], width=6, className="d-flex justify-content-center align-items-center", id="map-container"),
+        ], width=6, className="d-flex justify-content-center align-items-start", id="map-container"),
         dbc.Col([
             # html.Div(
             #     html.Ul(
@@ -99,15 +99,21 @@ app.layout = dbc.Container([
             dbc.Row([
             
             ], id="right_section"),
-        ], width=6),
-    ]),
+        ], width=6,),
+    ], className="h-100"),
     dbc.Col([
         dbc.Row([
             dbc.Col([
                 html.H2("", id="branche_title"),
                 html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close")
-            ], width=12, className="p-5 d-flex justify-content-between"),
-        ]),
+            ], width=12, className="px-5 py-4 d-flex justify-content-between"),
+        ], className="popup-header"),
+        dbc.Row([
+            dbc.Col([
+                dbc.Button("KPIs", color="primary", className="col-6 navigation-button active", id="kpi-btn"),
+                dbc.Button("Branchenübersicht", color="primary", className="col-6 navigation-button", id="branchenuebersicht_btn"),
+            ], width=12),
+        ], className="popup-header"),
         dbc.Row([
             dbc.Col([
 
@@ -116,6 +122,13 @@ app.layout = dbc.Container([
     ], width=12, className="h-100 position-absolute left-0", id="popup")
 ], fluid=True, className="body position-relative")
 
+@callback(
+    Output('',''),
+    Input('kpi-btn','n_clicks'),
+    Input('branchenuebersicht_btn','n_clicks')
+)
+def updateDetail(a, b):
+    return 0
 
 #ZUGEWIESEN AN -------- TOMMY --------
 # TODOS: wenn "Branche" ausgewählt wird: alle Unternehmen in einer Branche
@@ -133,40 +146,41 @@ app.layout = dbc.Container([
     #Input('date-range-end', 'start_date'),
     #Input('date-range-end', 'end_date'),
     Input('entity_dropdown', 'value'),
+    Input('category_dropdown', 'value'),
 )
-def renderMap(start_date_first, end_date_first, mcc):
+def renderMap(start_date_first, end_date_first, mcc, category):
 
 # BRANCHE: 
 # 1. Ist Umsatz(gesamt) der Branche - in jedem Bundesstaat - auf der Landkarte anzeigen:
+    if (category == 'Branchen') & (mcc is not None):
+        df_branche = transaction_data[transaction_data['mcc'] == int(mcc)]
+        df = df_branche
+        # Transaktionen im Zeitraum zwischen Start und End -- ERSTER DATEPICKER
+        df['date'] = pd.to_datetime(df['date'])
+        filtered_transaction_data = df[(df['date'] >= pd.to_datetime(start_date_first)) & (df['date'] <= pd.to_datetime(end_date_first))]
 
-    df_branche = transaction_data[transaction_data['mcc'] == int(mcc)]
-    df = df_branche
-    # Transaktionen im Zeitraum zwischen Start und End -- ERSTER DATEPICKER
-    df['date'] = pd.to_datetime(df['date'])
-    filtered_transaction_data = df[(df['date'] >= pd.to_datetime(start_date_first)) & (df['date'] <= pd.to_datetime(end_date_first))]
+        geo_col = country_config['geo_column']
+        scope = country_config['scope']
+        location_mode = country_config.get('location_mode', None)
 
-    geo_col = country_config['geo_column']
-    scope = country_config['scope']
-    location_mode = country_config.get('location_mode', None)
+        #marketcap = filtered_transaction_data.groupby(geo_col).size().reset_index(name='transaction_count')
+        marketcap = filtered_transaction_data.groupby(geo_col)['amount'].sum().reset_index(name="marketcap")
+        marketcap["marketcap"] = marketcap["marketcap"]
 
-    #marketcap = filtered_transaction_data.groupby(geo_col).size().reset_index(name='transaction_count')
-    marketcap = filtered_transaction_data.groupby(geo_col)['amount'].sum().reset_index(name="marketcap")
-    marketcap["marketcap"] = marketcap["marketcap"]
+        fig = px.choropleth(
+                marketcap,
+                locations=geo_col,
+                locationmode=location_mode,
+                color='marketcap',
+                color_continuous_scale="Blues",
+                scope=scope,
+                labels={geo_col: 'Bundesstaat', 'marketcap': 'Marktkapitalisierung'},
+                hover_data={geo_col: True, 'marketcap': True}
+            )
 
-    fig = px.choropleth(
-            marketcap,
-            locations=geo_col,
-            locationmode=location_mode,
-            color='marketcap',
-            color_continuous_scale="Blues",
-            scope=scope,
-            labels={geo_col: 'Bundesstaat', 'marketcap': 'Marktkapitalisierung'},
-            hover_data={geo_col: True, 'marketcap': True}
-        )
+        fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
 
-    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
-
-    return dcc.Graph(figure=fig)
+        return dcc.Graph(figure=fig, className="py-5")
 
 
 
@@ -174,8 +188,8 @@ def renderMap(start_date_first, end_date_first, mcc):
     Output('entity_dropdown', 'options'),
     Input('category_dropdown', 'value')
 )
-def update_entity_dropdown(branche):
-    if branche == 'Branchen':
+def update_entity_dropdown(category):
+    if category == 'Branchen':
         categories = [
             {"label": cat, "value": str(mcc)}
             for mcc, cat in mcc_codes_data[["mcc_code", "description"]].drop_duplicates().values
@@ -191,7 +205,8 @@ def update_entity_dropdown(branche):
     Input('date-range-start', 'end_date'),
 )
 def update_right_section(category, entity_value, start_date_first, end_date_first):
-    if category == 'Unternehmen' and entity_value:
+    if category == 'Unternehmen' and entity_value is not None:
+        print(entity_value)
         merchant_id = int(entity_value)
         df_merchant = transaction_data[transaction_data['merchant_id'] == merchant_id]
 
@@ -257,8 +272,8 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
 
     # for i, row in umsatz_am_start.iterrows():
     #     print(f"Händler {row['merchant_id']}: start_revenue = {row['start_revenue']}")
-    for i, row in umsatz_am_start.iterrows():
-        print(f"Händler {row['merchant_id']}: start_revenue = {row['start_revenue']}")
+    # for i, row in umsatz_am_start.iterrows():
+    #     print(f"Händler {row['merchant_id']}: start_revenue = {row['start_revenue']}")
     
     umsatz_am_ende = (
         filtered_transaction_data[(filtered_transaction_data['date'] == end_date_first)]
@@ -266,9 +281,9 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
         .sum()
         .reset_index(name="end_revenue")
     )
-    print('endDate: Selected ==> ', end_date_first)
-    for i, row in umsatz_am_ende.iterrows():
-        print(f"Händler {row['merchant_id']}: end_revenue = {row['end_revenue']}")
+    # print('endDate: Selected ==> ', end_date_first)
+    # for i, row in umsatz_am_ende.iterrows():
+    #     print(f"Händler {row['merchant_id']}: end_revenue = {row['end_revenue']}")
 
     umsatz_vergleich = pd.merge(
         umsatz_am_start,
@@ -393,7 +408,6 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
     State("popup", "className")
 )
 def toggle_class(n1, n2, current_class):
-    print(current_class)
     if "top-100-percent" in current_class:
         return "h-100 position-absolute left-0 col-12 top-0-pixel"
     else:
@@ -406,8 +420,10 @@ def toggle_class(n1, n2, current_class):
     Input("entity_dropdown", "value"),
     Input("date-range-start", "start_date"),
     Input("date-range-start", "end_date"),
+    Input('kpi-btn','n_clicks'),
+    Input('branchenuebersicht_btn','n_clicks')
 )
-def render_detailview(category, entity, start_date_first, end_date_first):
+def render_detailview(category, entity, start_date_first, end_date_first, kpi_btn, uebersicht_btn):
     if category == 'Branchen':
         transaction_data['date'] = pd.to_datetime(transaction_data['date'])
         time_transaction_data = transaction_data[(transaction_data['date'] >= pd.to_datetime(start_date_first)) & (transaction_data['date'] <= pd.to_datetime(end_date_first))]
@@ -462,8 +478,56 @@ def render_detailview(category, entity, start_date_first, end_date_first):
                                         dbc.Tab(dcc.Graph(figure=fig1, id="card-content",className="card-text"),label="Top 5", tab_id="tab-1"),
                                         dbc.Tab(dcc.Graph(figure=fig2, id="card-content",className="card-text"),label="Flop 5", tab_id="tab-2"),
                                     ],
-                                    id="card-tabs",
                                     active_tab="tab-1",
+                                )
+                            ),
+                        ]
+                    ),
+                ], width=12, className="detail-view-right-section-1"),
+                dbc.Col([
+                    html.Div("Persona")
+                ], width=12, className="detail-view-right-section-2"),
+            ], width=7, className="detail-view-right-section")
+        ]
+    if category == 'Unternehmen':
+
+        kpis = [
+            {'Marktkapitalisierung': 100000000},
+            {'durchschn. Transaktionshöhe': 380.20},
+            {'durchschn. Transaktionen pro Käufer': 100000000},
+            {'Umsatzwachstum (%)': 87.32},
+            {'Consumer Money Spent (%)': 100000000},
+            {'Unique Customers': 2102},
+        ]
+
+        return [
+            dbc.Col([
+                dbc.Col([
+                    dbc.Card([
+                        dbc.CardBody(
+                            [
+                                html.H5(value),
+                                html.P(
+                                    key
+                                ),
+                            ], className="kpi-card-body"
+                        ),         
+                    ], color="success", outline=True)
+                ],width=5, className="kpi-card p-2")
+                for kpi in kpis
+                for key, value in kpi.items()
+            ], width=5, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
+            dbc.Col([
+                dbc.Col([
+                    dbc.Card(
+                        [
+                            dbc.CardHeader(
+                                dbc.Tabs(
+                                    [
+                                        dbc.Tab("erster Tab Content",label="Top 5", tab_id="tab-3"),
+                                        dbc.Tab("erster Tab Content",label="Flop 5", tab_id="tab-4"),
+                                    ],
+                                    active_tab="tab-3",
                                 )
                             ),
                         ]
@@ -481,8 +545,16 @@ def render_detailview(category, entity, start_date_first, end_date_first):
     Input("entity_dropdown", "value"),
 )
 def update_detailView(category, entity):
-    if category == 'Branchen':
-        return entity
+    if category == 'Branchen' and entity is not None:
+        beschreibung = mcc_codes_data.loc[
+            mcc_codes_data["mcc_code"] == entity, "description"
+        ].values
+
+        if beschreibung.size > 0:
+            return f"{entity} – {beschreibung[0]}"
+        else:
+            return f"{entity} – Beschreibung nicht gefunden"
+    return ""
 
 if __name__ == '__main__':
     app.run(debug=True)
