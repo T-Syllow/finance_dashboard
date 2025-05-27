@@ -410,7 +410,7 @@ def render_detailview(category, entity):
     if category == 'Branchen':
         branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
         branchen_transaktionen["year"] = pd.to_datetime(branchen_transaktionen["date"]).dt.year 
-        umsatz_Jahr_Merchant = branchen_transaktionen.groupby("year")["amount"].sum().reset_index(name="Umsatz_im_Jahr")
+        umsatz_Jahr_Merchant = branchen_transaktionen.groupby(["year","merchant_id"])["amount"].sum().reset_index(name="Umsatz_im_Jahr")
 
         kpis = [{'Marktkapitalisierung': 100000000},
                 {'durchschn. Transaktionshöhe': 380.20},
@@ -420,7 +420,7 @@ def render_detailview(category, entity):
                 {'Unique Customers': 2102},
             ]
         
-        fig1 = px.line(umsatz_Jahr_Merchant, x='year', y='Umsatz_im_Jahr', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
+        fig1 = px.line(umsatz_Jahr_Merchant, x='year', y='Umsatz_im_Jahr', color='merchant_id', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
 
         return [
             dbc.Col([
