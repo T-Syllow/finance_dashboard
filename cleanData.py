@@ -1,13 +1,13 @@
 ﻿import pandas as pd
 import re
 
-# --- Read in data --- man muss nur Dateinamen ändern
+#  Read in data  man muss nur Dateinamen ändern
 input_path = "C:/Users/skugl/Documents/HFT/WIP2/finance_dashboard/user_data.csv"
 output_path = "C:/Users/skugl/Documents/HFT/WIP2/finance_dashboard/cleaned_user_data.csv"
 
 transaction_data = pd.read_csv(input_path, sep=",", encoding="utf8")
 
-# --- Check if value looks like a date or time ---
+#  Check if value looks like a date or time 
 def is_date_or_time(value):
     value = str(value).strip()
     date_patterns = [
@@ -17,7 +17,7 @@ def is_date_or_time(value):
     ]
     return any(re.fullmatch(p, value) for p in date_patterns)
 
-# --- Extract unit (either at start or end) ---
+#  Extract unit (either at start or end) 
 def get_unit(value):
     if is_date_or_time(value):
         return ''
@@ -30,7 +30,7 @@ def get_unit(value):
                 return g
     return ''
 
-# --- Remove unit and '+' sign (but keep '-') ---
+#  Remove unit and '+' sign (but keep '-') 
 def remove_unit_and_sign(value):
     value_str = str(value).strip()
 
@@ -49,7 +49,7 @@ def remove_unit_and_sign(value):
     except ValueError:
         return value  # Falls Umwandlung fehlschlägt
 
-# --- Spaltenverarbeitung ---
+#  Spaltenverarbeitung 
 found_units = {}
 
 for column in transaction_data.columns:
@@ -70,9 +70,9 @@ for column in transaction_data.columns:
     else:
         print("Keine Einheit gefunden in Spalte " + column + ".")
 
-# --- Dropdown-Spalten (z. B. für x-/y-Achsen) ---
+#  Dropdown-Spalten (z. B. für x-/y-Achsen) 
 column_titles_with_num = list(found_units.keys())
 
-# --- Speichere bereinigte CSV ---
+#  Speichere bereinigte CSV 
 transaction_data.to_csv(output_path, index=False, encoding="utf8")
 print(f"Bereinigte CSV gespeichert unter: {output_path}")
