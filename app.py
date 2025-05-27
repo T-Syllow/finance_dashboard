@@ -1,6 +1,6 @@
 import json
 from urllib.request import urlopen
-from dash import Dash, html, dash_table, Input, Output, callback, dcc
+from dash import Dash, State, html, dash_table, Input, Output, callback, dcc
 import pandas as pd
 import plotly.express as px
 from dash import Dash, dcc, html, Input, Output
@@ -9,6 +9,7 @@ import plotly.express as px
 import re
 import plotly.graph_objects as go
 import pandas as pd
+import numpy as np
 
 with urlopen('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json') as response:
     counties = json.load(response)
@@ -30,7 +31,6 @@ with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
     mcc_dict = json.load(f)
 mcc_codes_data = pd.DataFrame(list(mcc_dict.items()), columns=['mcc_code', 'description'])
 
-
 # alle Händler
 merchants = transaction_data['merchant_id'].unique()
 
@@ -48,10 +48,7 @@ state_counts = transaction_data.groupby("merchant_state").size().reset_index(nam
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 
-app.layout = dbc.Container([
-    dbc.Row([
-        html.Div('Finance Table Transaction Data', className="text-primary text-center fs-3")
-    ]),
+app.layout = dbc.Container([ 
     dbc.Row([
         dbc.Col([
             dbc.Col([
@@ -81,6 +78,9 @@ app.layout = dbc.Container([
                 ], width=8),
             ], width=12, className="d-flex py-2 gap-2 justify-content-start"),
         ], width=6, className="py-3 filterbar"),
+        dbc.Col([
+            dbc.Button('Detailansicht anzeigen', className='btn primary', id="toggle-button" , n_clicks=0)
+        ])
     ], className="navbar"),
     dbc.Row([
         dbc.Col([
@@ -98,10 +98,24 @@ app.layout = dbc.Container([
             #     dbc.Button("Alle anzeigen", color="primary", className="me-1 col-4", id="show_unternehmen_btn"),
             # ], className="d-flex justify-content-center"),
             dbc.Row([
-            ], id="right_section")
+            
+            ], id="right_section"),
         ], width=6),
     ]),
-], fluid=True, className="body")
+    dbc.Col([
+        dbc.Row([
+            dbc.Col([
+                html.H2("", id="branche_title"),
+                html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close")
+            ], width=12, className="p-5 d-flex justify-content-between"),
+        ]),
+        dbc.Row([
+            dbc.Col([
+
+            ], width=12, className="d-flex p-3", id="detail-view")
+        ], className="h-100")
+    ], width=12, className="h-100 position-absolute left-0", id="popup")
+], fluid=True, className="body position-relative")
 
 
 #ZUGEWIESEN AN -------- TOMMY --------
@@ -173,9 +187,11 @@ def update_entity_dropdown(branche):
 @callback(
     Output('right_section', 'children'),
     Input('category_dropdown', 'value'),
-    Input('entity_dropdown', 'value')
+    Input('entity_dropdown', 'value'),
+    Input('date-range-start', 'start_date'),
+    Input('date-range-start', 'end_date'),
 )
-def update_right_section(category, entity_value):
+def update_right_section(category, entity_value, start_date_first, end_date_first):
     if category == 'Unternehmen' and entity_value:
         merchant_id = int(entity_value)
         df_merchant = transaction_data[transaction_data['merchant_id'] == merchant_id]
@@ -211,21 +227,85 @@ def update_right_section(category, entity_value):
             ])
         ], color="light", outline=True)
 
-    branche = transaction_data.query(f"mcc == {entity_value}")
-    # Gruppiere nach merchant_id und summiere den Umsatz (amount)
+    df_branche = transaction_data.query(f"mcc == {entity_value}")
+
+    df = df_branche
+
+    # Transaktionen im Zeitraum zwischen Start und End -- ERSTER DATEPICKER
+    df['date'] = pd.to_datetime(df['date'])
+    filtered_transaction_data = df[(df['date'] >= pd.to_datetime(start_date_first)) & (df['date'] <= pd.to_datetime(end_date_first))]
+    filtered_transaction_data['date'] = pd.to_datetime(filtered_transaction_data['date']).dt.date
+    start_date_first = pd.to_datetime(start_date_first).date() 
+    end_date_first = pd.to_datetime(end_date_first).date() 
+
+    if filtered_transaction_data.empty: 
+        return dbc.Col([
+            dbc.Row([
+                dbc.Alert('keine Daten in diesem Zeitraum verfügbar!', className="fs-5 text", color="danger"),
+            ]),
+        ], className="ranklist_container p-4")
+    
+    print(filtered_transaction_data['date'])
+    print('start Date format: ######## ', start_date_first)
+    print('end Date format: ######## ', end_date_first)
+
+    umsatz_am_start = (
+        filtered_transaction_data[filtered_transaction_data['date'] == start_date_first]
+        .groupby('merchant_id')['amount']
+        .sum()
+        .reset_index(name="start_revenue")
+    )
+
+    # for i, row in umsatz_am_start.iterrows():
+    #     print(f"Händler {row['merchant_id']}: start_revenue = {row['start_revenue']}")
+    for i, row in umsatz_am_start.iterrows():
+        print(f"Händler {row['merchant_id']}: start_revenue = {row['start_revenue']}")
+    
+    umsatz_am_ende = (
+        filtered_transaction_data[(filtered_transaction_data['date'] == end_date_first)]
+        .groupby('merchant_id')['amount']
+        .sum()
+        .reset_index(name="end_revenue")
+    )
+    print('endDate: Selected ==> ', end_date_first)
+    for i, row in umsatz_am_ende.iterrows():
+        print(f"Händler {row['merchant_id']}: end_revenue = {row['end_revenue']}")
+
+    umsatz_vergleich = pd.merge(
+        umsatz_am_start,
+        umsatz_am_ende,
+        'left',
+        'merchant_id'
+    ).fillna(0)
+
+    umsatz_vergleich['veränderung'] = np.where(
+        umsatz_vergleich['start_revenue'] == 0,
+        np.nan,
+        ((umsatz_vergleich['end_revenue'] - umsatz_vergleich['start_revenue']) / umsatz_vergleich['start_revenue']) * 100
+    )
+
+    #Gruppiere nach merchant_id und summiere den Umsatz (amount)
     umsatz_pro_merchant = (
-        branche.groupby("merchant_id")['amount']
+        filtered_transaction_data.groupby("merchant_id")['amount']
         .sum()
         .reset_index()
         .rename(columns={"amount": "total_revenue"})
         .sort_values(by="total_revenue", ascending=False)
     )
+
+    umsatz_pro_merchant = pd.merge(
+        umsatz_pro_merchant,
+        umsatz_vergleich,
+        'left',
+        'merchant_id'
+    )
+
     top_5 = umsatz_pro_merchant.nlargest(5, 'total_revenue')
     flop_5 = umsatz_pro_merchant.nsmallest(5, 'total_revenue')
 
     top_content = [
         dbc.ListGroupItem(
-            f" Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} €"
+            f" Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} € - Veränderung: {row['veränderung']:.2f} %"
         , className="ranklist_item")
         for i, row in top_5.iterrows()
     ]
@@ -303,6 +383,107 @@ def update_right_section(category, entity_value):
 #         cards.append(card)
 
 #     return cards
+
+
+# ---- CSS Gimmics hinzufügen und entfernen hier ----
+
+@app.callback(
+    Output("popup", "className"),
+    Input("toggle-button", "n_clicks"),
+    Input("toggle-button-close", "n_clicks"),
+    State("popup", "className")
+)
+def toggle_class(n1, n2, current_class):
+    print(current_class)
+    if "top-100-percent" in current_class:
+        return "h-100 position-absolute left-0 col-12 top-0-pixel"
+    else:
+        return "h-100 position-absolute left-0 col-12 top-100-percent"
+    
+
+@app.callback(
+    Output("detail-view", "children"),
+    Input("category_dropdown", "value"),
+    Input("entity_dropdown", "value"),
+    Input("date-range-start", "start_date"),
+    Input("date-range-start", "end_date"),
+)
+def render_detailview(category, entity, start_date_first, end_date_first):
+    if category == 'Branchen':
+        transaction_data['date'] = pd.to_datetime(transaction_data['date'])
+        time_transaction_data = transaction_data[(transaction_data['date'] >= pd.to_datetime(start_date_first)) & (transaction_data['date'] <= pd.to_datetime(end_date_first))]
+        branchen_transaktionen = time_transaction_data[time_transaction_data['mcc'] == int(entity)]
+        branchen_transaktionen["year"] = pd.to_datetime(branchen_transaktionen["date"]).dt.year 
+        umsatz_Jahr_Merchant = branchen_transaktionen.groupby(["year","merchant_id"])["amount"].sum().reset_index(name="Umsatz_im_Jahr")
+        
+        umsatz_pro_merchant = umsatz_Jahr_Merchant.groupby("merchant_id")["Umsatz_im_Jahr"].sum().reset_index(name="gesamtumsatz")
+
+        top_5 = umsatz_pro_merchant.nlargest(5, 'gesamtumsatz')
+        flop_5 = umsatz_pro_merchant.nsmallest(5, 'gesamtumsatz')
+
+        umsatz_Jahr_Merchant_top = umsatz_Jahr_Merchant[umsatz_Jahr_Merchant['merchant_id'].isin(top_5['merchant_id'])]
+        umsatz_Jahr_Merchant_flop = umsatz_Jahr_Merchant[umsatz_Jahr_Merchant['merchant_id'].isin(flop_5['merchant_id'])]
+
+        kpis = [
+            {'Marktkapitalisierung': 100000000},
+            {'durchschn. Transaktionshöhe': 380.20},
+            {'durchschn. Transaktionen pro Käufer': 100000000},
+            {'Umsatzwachstum (%)': 87.32},
+            {'Consumer Money Spent (%)': 100000000},
+            {'Unique Customers': 2102},
+        ]
+        
+        fig1 = px.line(umsatz_Jahr_Merchant_top, x='year', y='Umsatz_im_Jahr', color='merchant_id', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
+        fig2 = px.line(umsatz_Jahr_Merchant_flop, x='year', y='Umsatz_im_Jahr', color='merchant_id', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
+
+        return [
+            dbc.Col([
+                dbc.Col([
+                    dbc.Card([
+                        dbc.CardBody(
+                            [
+                                html.H5(value),
+                                html.P(
+                                    key
+                                ),
+                            ], className="kpi-card-body"
+                        ),         
+                    ], color="success", outline=True)
+                ],width=5, className="kpi-card p-2")
+                for kpi in kpis
+                for key, value in kpi.items()
+            ], width=5, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
+            dbc.Col([
+                dbc.Col([
+                    dbc.Card(
+                        [
+                            dbc.CardHeader(
+                                dbc.Tabs(
+                                    [
+                                        dbc.Tab(dcc.Graph(figure=fig1, id="card-content",className="card-text"),label="Top 5", tab_id="tab-1"),
+                                        dbc.Tab(dcc.Graph(figure=fig2, id="card-content",className="card-text"),label="Flop 5", tab_id="tab-2"),
+                                    ],
+                                    id="card-tabs",
+                                    active_tab="tab-1",
+                                )
+                            ),
+                        ]
+                    ),
+                ], width=12, className="detail-view-right-section-1"),
+                dbc.Col([
+                    html.Div("Persona")
+                ], width=12, className="detail-view-right-section-2"),
+            ], width=7, className="detail-view-right-section")
+        ]
+    
+@app.callback(
+    Output("branche_title", "children"),
+    Input("category_dropdown", "value"),
+    Input("entity_dropdown", "value"),
+)
+def update_detailView(category, entity):
+    if category == 'Branchen':
+        return entity
 
 if __name__ == '__main__':
     app.run(debug=True)
