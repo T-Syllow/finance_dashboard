@@ -106,9 +106,14 @@ app.layout = dbc.Container([
         dbc.Row([
             dbc.Col([
                 html.H2("", id="branche_title"),
-                html.Img(src="./assets/x.png", className="icon1")
+                html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close")
             ], width=12, className="p-5 d-flex justify-content-between"),
-        ])
+        ]),
+        dbc.Row([
+            dbc.Col([
+
+            ], width=12, className="d-flex p-3", id="detail-view")
+        ], className="h-100")
     ], width=12, className="h-100 position-absolute left-0", id="popup")
 ], fluid=True, className="body position-relative")
 
@@ -385,14 +390,65 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
 @app.callback(
     Output("popup", "className"),
     Input("toggle-button", "n_clicks"),
+    Input("toggle-button-close", "n_clicks"),
     State("popup", "className")
 )
-def toggle_class(n, current_class):
+def toggle_class(n1, n2, current_class):
     print(current_class)
     if "top-100-percent" in current_class:
         return "h-100 position-absolute left-0 col-12 top-0-pixel"
     else:
         return "h-100 position-absolute left-0 col-12 top-100-percent"
+    
+
+@app.callback(
+    Output("detail-view", "children"),
+    Input("category_dropdown", "value"),
+    Input("entity_dropdown", "value"),
+)
+def render_detailview(category, entity):
+    if category == 'Branchen':
+        branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
+        branchen_transaktionen["year"] = pd.to_datetime(branchen_transaktionen["date"]).dt.year 
+        umsatz_Jahr_Merchant = branchen_transaktionen.groupby("year")["amount"].sum().reset_index(name="Umsatz_im_Jahr")
+
+        kpis = [{'Marktkapitalisierung': 100000000},
+                {'durchschn. Transaktionshöhe': 380.20},
+                {'durchschn. Transaktionen pro Käufer': 100000000},
+                {'Umsatzwachstum (%)': 87.32},
+                {'Consumer Money Spent (%)': 100000000},
+                {'Unique Customers': 2102},
+            ]
+        
+        fig1 = px.line(umsatz_Jahr_Merchant, x='year', y='Umsatz_im_Jahr', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
+
+        return [
+            dbc.Col([
+                dbc.Col([
+                    dbc.Card([
+                        dbc.CardBody(
+                            [
+                                html.H5(value),
+                                html.P(
+                                    key
+                                ),
+                            ], className="kpi-card-body"
+                        ),         
+                    ], color="success", outline=True)
+                ],width=5, className="kpi-card p-2")
+                for kpi in kpis
+                for key, value in kpi.items()
+            ], width=5, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
+            dbc.Col([
+                dbc.Col([
+                    dcc.Graph(figure=fig1)
+                ], width=12, className="detail-view-right-section-1"),
+                dbc.Col([
+                    html.Div("Persona")
+                ], width=12, className="detail-view-right-section-2"),
+            ], width=7, className="detail-view-right-section")
+        ]
+
     
 @app.callback(
     Output("branche_title", "children"),
