@@ -25,9 +25,10 @@ data_folder = "newData/"
 transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data.csv", sep=",", encoding="utf8")
 cards_data = pd.read_csv(data_folder + "cards_data.csv", sep=",", encoding="utf8")
 users_data = pd.read_csv(data_folder + "users_data.csv", sep=",", encoding="utf8")
-with open(data_folder + 'mcc-codes.json', 'r', encoding='utf-8') as f:
+with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
     mcc_dict = json.load(f)
 mcc_codes_data = pd.DataFrame(list(mcc_dict.items()), columns=['mcc_code', 'description'])
+merchant_stats = pd.read_csv(data_folder + "merchant_stats.csv", sep=",", encoding="utf8")
 
 # Sicherstellen, dass 'date' Spalte ein Datetime-Objekt ist
 transaction_data['date'] = pd.to_datetime(transaction_data['date'], errors='coerce')
@@ -46,62 +47,17 @@ merchant_branche_codes = mcc_codes_data['mcc_code'].unique()
 
 state_counts = transaction_data.groupby("merchant_state").size().reset_index(name="transaction_count")
 
+# ALLE STANDARDWERTE FÜR UN-FILTER
+min_niederlassungen = int(merchant_stats['niederlassungen'].min())
+max_niederlassungen = int(merchant_stats['niederlassungen'].max())
 
-# LOGIK FÜR FILTER (Simon) ---------------------------------------------------------------------------------------------
+min_avg_transaction = float(merchant_stats['avg_transaction'].min())
+max_avg_transaction = float(merchant_stats['avg_transaction'].max())
 
+min_revenue = float(merchant_stats['revenue'].min())
+max_revenue = float(merchant_stats['revenue'].max())
 
-# Umsatz Gesamt
-revenue_per_merchant = transaction_data.groupby('merchant_id')['amount'].sum().rename('gesamtumsatz')
-
-# Durchschnittliche Transaktionshöhe
-avg_transaction = transaction_data.groupby('merchant_id')['amount'].mean().rename('avg_transaction')
-
-# Anzahl der Niederlassungen
-niederlassungen_per_merchant = (
-    transaction_data.groupby('merchant_id')
-    .apply(lambda g: g[['merchant_city', 'merchant_state']].drop_duplicates().shape[0], include_groups=False)
-    .rename('niederlassungen')
-)
-
-
-# Jahr extrahieren
-transaction_data['year'] = transaction_data['date'].dt.year
-
-# Umsatz pro Jahr und merchant
-revenue_yearly = (
-    transaction_data.groupby(['merchant_id', 'year'])['amount']
-    .sum()
-    .unstack(fill_value=0)
-)
-
-
-# zusammenführen
-merchant_stats = (
-    revenue_per_merchant
-    .to_frame()
-    .join(avg_transaction)
-    .join(niederlassungen_per_merchant)
-    
-    .reset_index()
-)
-
-# Umbenennen für Klarheit
-merchant_stats.columns = [
-    "merchant_id", "revenue", "avg_transaction", "niederlassungen"
-]
-
-# ALLE FILTER STANDARDWERTE FÜR UNTERNEHMENS-FILTER
-min_niederlassungen = merchant_stats['niederlassungen'].min()
-max_niederlassungen = merchant_stats['niederlassungen'].max()
-min_avg_transaction = merchant_stats['avg_transaction'].min()
-max_avg_transaction = merchant_stats['avg_transaction'].max()
-min_revenue = merchant_stats['revenue'].min()
-max_revenue = merchant_stats['revenue'].max()
-
-
-# FILTER LOGIK ENDE ----------------------------------------------------------------------------------------------------------
-
-
+# Beginn Layout
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 
@@ -127,7 +83,7 @@ app.layout = dbc.Container([
                 ], width=3),
                 dbc.Col([
                     dcc.Dropdown(id='entity_dropdown',
-                        # Initial befüllen basierend auf dem Standardwert von category_dropdown
+                        # Initial Wert
                         options=[{"label": cat, "value": str(mcc)} for mcc, cat in mcc_codes_data[["mcc_code", "description"]].drop_duplicates().values],
                         value='5411' # Initialwert Brancehn
                         ),
@@ -149,7 +105,7 @@ app.layout = dbc.Container([
 ], fluid=True, className="body")
 
 
-# Einklappbare Filter ----------------------------------------------------------------
+# Einklappbare Filter (HTML)----------------------------------------------------------------
 @callback(
     Output('additional-filters', 'children'),
     Input('category_dropdown', 'value'),
@@ -180,7 +136,11 @@ def display_additional_filters(category_value):
                         max=max_niederlassungen,
                         step=1,
                         value=[min_niederlassungen, max_niederlassungen],
-                        tooltip={"always_visible": False, "placement": "bottom"},
+                        tooltip={"always_visible": False, "placement": "top"},
+                        marks={
+                            min_niederlassungen: str(min_niederlassungen),
+                            max_niederlassungen: str(max_niederlassungen)
+                        }
                     ), width=9),
                 ], className="mb-3"),
 
@@ -193,7 +153,11 @@ def display_additional_filters(category_value):
                         max=max_avg_transaction,
                         step=10,
                         value=[min_avg_transaction, max_avg_transaction],
-                        tooltip={"always_visible": False, "placement": "bottom"},
+                        tooltip={"always_visible": False, "placement": "top"},
+                        marks={
+                            min_avg_transaction: str(min_avg_transaction),
+                            max_avg_transaction: str(max_avg_transaction)
+                        }
                     ), width=9),
                 ], className="mb-3"),
 
@@ -206,7 +170,11 @@ def display_additional_filters(category_value):
                         max=max_revenue,
                         step=1000,
                         value=[min_revenue, max_revenue],
-                        tooltip={"always_visible": False, "placement": "bottom"},
+                        tooltip={"always_visible": False, "placement": "top"},
+                        marks={
+                            min_revenue: str(min_revenue),
+                            max_revenue: str(max_revenue)
+                        }
                     ), width=9),
                 ]),
             ]),
