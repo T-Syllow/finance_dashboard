@@ -10,7 +10,7 @@ from datetime import datetime
 df_companies = pd.read_csv("cards_data.csv")
 unternehmen_liste = df_companies['id'].dropna().unique().tolist()
 
-#Monatsdaten für Balkendiagramm - random, monatlich (Umsatzdaten integrieren!)
+#Monatsdaten für Balkendiagramm - random, monatlich (Umsatzdaten integrieren!)  ####
 months = pd.date_range(start="2023-01-01", end="2025-01-01", freq='M')
 umsatz_data = pd.DataFrame({
     'Monat': months,

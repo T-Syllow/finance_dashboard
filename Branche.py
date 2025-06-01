@@ -78,3 +78,7 @@ if __name__ == "__main__":
     app.run(debug=True)
 
 
+
+    filtered_data = transaction_data[transaction_data["merchant_id"] == selected_merchant]
+
+

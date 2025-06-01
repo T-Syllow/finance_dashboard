@@ -48,7 +48,7 @@ def create_kpi_cards(kpis):
 
 # Layout
 app.layout = dbc.Container([
-    html.H2("Branchen Dashboard", className="my-3"),
+    html.H2("Branchenansicht", className="my-3"),
 
     dbc.Row([
         dbc.Col([
