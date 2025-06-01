@@ -446,20 +446,20 @@ def render_detailview(category, entity, start_date_first, end_date_first):
         #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
         #branchen_transaktionen = time_transaction_data[time_transaction_data['mcc'] == int(entity)]
 
-        DurchschnittTransaktion = branchen_transaktionen["merchant_id"].count()
-        DurchschnittProKäufer = branchen_transaktionen["client_id"].nunique()
-        DurchschnittTransaktionenProKäufer = DurchschnittTransaktion / DurchschnittProKäufer
+        GesamtTransaktionen = branchen_transaktionen["merchant_id"].count()
+        EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
+        DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
 
         DurchschnittTransaktionenProKäufer = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        print("Durchschnitt der Transaktionen pro Käufer: ", durchschnitt)
+        print("Durchschnitt der Transaktionen pro Käufer: ", DurchschnittTransaktionenProKäufer)
 
 
 # =====================================================================================
 
     #Durchschnittliche Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum
 
-        branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
+        #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
         DurchschnittTransaktionshöhe = branchen_transaktionen['amount'].mean()
         DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} € ".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -492,7 +492,7 @@ def render_detailview(category, entity, start_date_first, end_date_first):
         kpis = [
             {'Marktkapitalisierung': Marktkapitalisierung},   # Berechnet die Marktkapitalisierung 
             {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöhe},    # Berechnet die durchschn. Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum in Euro 
-            {'durchschn. Transaktionen pro Käufer': durchschnitt}, # Berechnet die Menge an Transaktionen, die ein Käufer im Durchschnitt im ausgewählten Zeitraum tätigt.
+            {'durchschn. Transaktionen pro Käufer': DurchschnittTransaktionenProKäufer}, # Berechnet die Menge an Transaktionen, die ein Käufer im Durchschnitt im ausgewählten Zeitraum tätigt.
             {'Umsatzwachstum (%)': 87.42},  # (optional) diese KPI müsst ihr nicht berechnen!! 
             {'Consumer Money Spent (%)': ConsumerMoneySpent},  # Berechnet zunächst die durchschn. Menge an Geld, die ein User im Schnitt im ausgewählten Zeitraum ausgibt. Dann berechnet wie viel er für die Branche im durchschnitt ausgibt. und setzt es anschließend ins Verhältnis! ==> %
             {'Unique Customers': 2102}, # Wie viele einzigartige User haben im ausgewählten Zeitrsaum bei der Branche eingekauft?
