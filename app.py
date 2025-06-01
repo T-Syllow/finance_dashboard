@@ -441,16 +441,16 @@ def render_detailview(category, entity, start_date_first, end_date_first):
 # =====================================================================================
 
 
-    #Durchschnitt der Transaktionen Pro Käufer - noch nicht fertig
+    #Durchschnitt der Transaktionen Pro Käufer - noch nicht fertig 
 
-        branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
+        #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
         #branchen_transaktionen = time_transaction_data[time_transaction_data['mcc'] == int(entity)]
 
-        DurchschnittTransaktion = transaction_data["merchant_id"].count()
-        DurchschnittProKäufer = transaction_data["client_id"].count()
+        DurchschnittTransaktion = branchen_transaktionen["merchant_id"].count()
+        DurchschnittProKäufer = branchen_transaktionen["client_id"].nunique()
         DurchschnittTransaktionenProKäufer = DurchschnittTransaktion / DurchschnittProKäufer
 
-        #DurchschnittTransaktionenProKäufer = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
+        DurchschnittTransaktionenProKäufer = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
 
         print("Durchschnitt der Transaktionen pro Käufer: ", DurchschnittTransaktionenProKäufer)
 
