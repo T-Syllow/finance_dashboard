@@ -443,12 +443,6 @@ def render_detailview(category, entity, start_date_first, end_date_first):
 
     #Durchschnitt der Transaktionen Pro Käufer - noch nicht fertig
         
-        transaktionen_je_kunde = branchen_transaktionen.groupby("client_id").size().reset_index(name="anzahl_transaktionen")
-
-        # Schritt 2: Berechne Durchschnitt über alle Kunden
-        durchschnitt = transaktionen_je_kunde["anzahl_transaktionen"].mean()
-        
-        durchschnitt = f"{durchschnitt:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
         
         # DurchschnittTransaktion = branchen_transaktionen["merchant_id"].count()
         # DurchschnittProKäufer = transaction_data["client_id"].count()
