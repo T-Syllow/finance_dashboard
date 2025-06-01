@@ -483,25 +483,26 @@ def render_detailview(category, entity, start_date_first, end_date_first):
 
 # =====================================================================================
 
-
+    #Unique Customers
+    EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
 
        
 
 
 # ============================= Code Ende =============================================
-        kpis = [
+    kpis = [
             {'Marktkapitalisierung': Marktkapitalisierung},   # Berechnet die Marktkapitalisierung 
             {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöhe},    # Berechnet die durchschn. Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum in Euro 
             {'durchschn. Transaktionen pro Käufer': DurchschnittTransaktionenProKäufer}, # Berechnet die Menge an Transaktionen, die ein Käufer im Durchschnitt im ausgewählten Zeitraum tätigt.
             {'Umsatzwachstum (%)': 87.42},  # (optional) diese KPI müsst ihr nicht berechnen!! 
             {'Consumer Money Spent (%)': ConsumerMoneySpent},  # Berechnet zunächst die durchschn. Menge an Geld, die ein User im Schnitt im ausgewählten Zeitraum ausgibt. Dann berechnet wie viel er für die Branche im durchschnitt ausgibt. und setzt es anschließend ins Verhältnis! ==> %
-            {'Unique Customers': 2102}, # Wie viele einzigartige User haben im ausgewählten Zeitrsaum bei der Branche eingekauft?
+            {'Unique Customers':  EinzigartigeKäufer}, # Wie viele einzigartige User haben im ausgewählten Zeitrsaum bei der Branche eingekauft?
         ]
         
-        fig1 = px.line(umsatz_Jahr_Merchant_top, x='year', y='Umsatz_im_Jahr', color='merchant_id', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
-        fig2 = px.line(umsatz_Jahr_Merchant_flop, x='year', y='Umsatz_im_Jahr', color='merchant_id', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
+    fig1 = px.line(umsatz_Jahr_Merchant_top, x='year', y='Umsatz_im_Jahr', color='merchant_id', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
+    fig2 = px.line(umsatz_Jahr_Merchant_flop, x='year', y='Umsatz_im_Jahr', color='merchant_id', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
 
-        return [
+    return [
             dbc.Col([
                 dbc.Col([
                     dbc.Card([
