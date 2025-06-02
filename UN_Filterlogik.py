@@ -50,7 +50,7 @@ merchant_stats.columns = [
 merchant_stats = merchant_stats.round(1)
 
 
-output_path = "C:/Users/skugl/Documents/HFT/WIP2/finance_dashboard/merchant_stats.csv"
+output_path = "./newData/merchant_stats.csv"
 
 merchant_stats.to_csv(output_path, index=False, encoding="utf8")
 print(f"Berechnete CSV gespeichert unter: {output_path}")

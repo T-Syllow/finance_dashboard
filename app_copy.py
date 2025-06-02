@@ -23,8 +23,8 @@ country_config = {
 # --- Read in data ---
 data_folder = "newData/"
 transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data.csv", sep=",", encoding="utf8")
-cards_data = pd.read_csv(data_folder + "cards_data.csv", sep=",", encoding="utf8")
-users_data = pd.read_csv(data_folder + "users_data.csv", sep=",", encoding="utf8")
+cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv", sep=",", encoding="utf8")
+users_data = pd.read_csv(data_folder + "cleaned_users_data.csv", sep=",", encoding="utf8")
 with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
     mcc_dict = json.load(f)
 mcc_codes_data = pd.DataFrame(list(mcc_dict.items()), columns=['mcc_code', 'description'])
