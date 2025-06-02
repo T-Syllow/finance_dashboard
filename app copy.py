@@ -23,8 +23,8 @@ country_config = {
 # --- Read in data ---
 data_folder = "newData/"
 transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data.csv", sep=",", encoding="utf8")
-cards_data = pd.read_csv(data_folder + "cards_data.csv", sep=",", encoding="utf8")
-users_data = pd.read_csv(data_folder + "users_data.csv", sep=",", encoding="utf8")
+cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv", sep=",", encoding="utf8")
+users_data = pd.read_csv(data_folder + "cleaned_users_data.csv", sep=",", encoding="utf8")
 with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
     mcc_dict = json.load(f)
 mcc_codes_data = pd.DataFrame(list(mcc_dict.items()), columns=['mcc_code', 'description'])
@@ -87,10 +87,16 @@ app.layout = dbc.Container([
                         options=[{"label": cat, "value": str(mcc)} for mcc, cat in mcc_codes_data[["mcc_code", "description"]].drop_duplicates().values],
                         value='5411' # Initialwert Brancehn
                         ),
-                    html.Div(id='additional-filters') # FILTER (Simon)
                 ], width=8),
             ], width=12, className="d-flex py-2 gap-2 justify-content-start"),
         ], width=6, className="navbar"),
+        dbc.Col([
+            
+                dcc.RangeSlider(id="niederlassungen_range_slider"),
+                dcc.RangeSlider(id="avg_transaction_range_slider"),
+                dcc.RangeSlider(id="revenue_range_slider")
+             
+        ],width=6, id='additional-filters', className="mx-0 px-0") # FILTER (Simon)
     ]),
 
     dbc.Row([
@@ -115,21 +121,11 @@ def display_additional_filters(category_value):
         return None
 
     return dbc.Card([
-        dbc.CardHeader(
-            dbc.Button(
-                "Erweiterte Filter anzeigen / ausblenden",
-                id="toggle-filters-button",
-                color="secondary",
-                n_clicks=0,
-                className="w-100"
-            )
-        ),
-        dbc.Collapse(
             dbc.CardBody([
 
                 # Niederlassungen
                 dbc.Row([
-                    dbc.Col(html.Label("Anzahl der Niederlassungen"), width=3, style={"textAlign": "right", "paddingTop": "10px"}),
+                    dbc.Col(html.Label("Niederlassungen"), width=3, style={"textAlign": "right", "paddingTop": "10px"}),
                     dbc.Col(dcc.RangeSlider(
                         id='niederlassungen_range_slider',
                         min=min_niederlassungen,
@@ -178,21 +174,8 @@ def display_additional_filters(category_value):
                     ), width=9),
                 ]),
             ]),
-            id="filter-collapse",
-            is_open=True
-        )
     ])
 
-# Callback für das Umschalten des Collapse-Elements
-@callback(
-    Output("filter-collapse", "is_open"),
-    [Input("toggle-filters-button", "n_clicks")],
-    [State("filter-collapse", "is_open")],
-)
-def toggle_collapse(n, is_open):
-    if n:
-        return not is_open
-    return is_open
 
 #callback für output der unternehmensliste nach filtern
 @callback(
@@ -204,8 +187,12 @@ def toggle_collapse(n, is_open):
 )
 def filter_merchants_or_mcc(niederlassungen_range, avg_trans_range, revenue_range, category_value):
     if category_value == 'Unternehmen':
-        filtered_df = merchant_stats.copy()
 
+        if not all([niederlassungen_range, avg_trans_range, revenue_range]):
+            return []
+
+        filtered_df = merchant_stats.copy()
+       
         # Weitere Filter anwenden
         filtered_df = filtered_df[
             (filtered_df['niederlassungen'] >= niederlassungen_range[0]) &
@@ -265,7 +252,7 @@ def renderMap(start_date, end_date, entity_value, category_value):
         title_text = f"Umsatz pro Bundesstaat für Unternehmen: {entity_value}"
     else:
         # Falls category_value unerwartet ist oder keine Auswahl vorliegt
-        marketcap = pd.DataFrame(columns=[geo_col, 'marketcap']) # Leeres DataFrame
+        marketcap = pd.DataFrame(columns=[geo_col, 'marketcap']) 
         title_text = "Bitte wählen Sie eine Kategorie und ein Element aus."
 
     if not marketcap.empty:
