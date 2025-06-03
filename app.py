@@ -23,7 +23,7 @@ country_config = {
 
 # --- Read in data ---
 data_folder = "../newData/"
-transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_10k.csv", sep=",",  encoding="utf8")
+transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data.csv", sep=",",  encoding="utf8")
 cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv", sep=",",  encoding="utf8")
 users_data = pd.read_csv(data_folder + "cleaned_users_data.csv", sep=",",  encoding="utf8")
 with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
@@ -43,6 +43,12 @@ merchant_categories = mcc_codes_data['description'].unique().tolist()
 merchant_branche_codes = mcc_codes_data['mcc_code'].unique()
 
 state_counts = transaction_data.groupby("merchant_state").size().reset_index(name="transaction_count")
+
+timed_transaction_data = transaction_data
+#timed_branche_data = transaction_data
+timed_unternehmen_data = transaction_data
+
+
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -196,6 +202,15 @@ def update_entity_dropdown(category):
         ]
         return categories
     return merchants.tolist()
+
+
+def getDateSelectionFrames(start_date, end_datem, mcc):
+    transaction_data['date'] = pd.to_datetime(transaction_data['date'])
+    timed_transaction_data = transaction_data[(transaction_data['date'] >= pd.to_datetime(start_date)) & (transaction_data['date'] <= pd.to_datetime(end_date))]
+    timed_branche_data = timed_transaction_data[timed_transaction_data['mcc'] == int(mcc)]
+    transaction_data['mcc'] == int(mcc)
+    timed_unternehmen_data = transaction_data
+    
         
 @callback(
     Output('right_section', 'children'),
@@ -205,7 +220,9 @@ def update_entity_dropdown(category):
     Input('date-range-start', 'end_date'),
 )
 def update_right_section(category, entity_value, start_date_first, end_date_first):
+    
     if category == 'Unternehmen' and entity_value is not None:
+        getDateSelectionFrames(start_date_first, end_date_first, entity_value)
         print(entity_value)
         merchant_id = int(entity_value)
         df_merchant = transaction_data[transaction_data['merchant_id'] == merchant_id]
@@ -341,9 +358,8 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
             dbc.Label('Flop 5', className="fs-2 text"),
             dbc.ListGroup(flop_content, numbered=True, id="flop_list", className="ranklist p-4")
         ])
-    ], className="ranklist_container p-4")
-            
-    
+    ], className="ranklist_container p-4")    
+
 # @callback(
 #     Output("unternehmen_liste", "children"),       
 #     Input("show_unternehmen_btn", "n_clicks"),  
