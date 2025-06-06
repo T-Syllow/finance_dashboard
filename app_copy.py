@@ -156,7 +156,7 @@ def display_additional_filters(category_value):
                         }
                     ), width=9),
                 ], className="mb-3"),
-
+    
                 # Gesamtumsatz
                 dbc.Row([
                     dbc.Col(html.Label("Gesamtumsatz (€)"), width=3, style={"textAlign": "right", "paddingTop": "10px"}),

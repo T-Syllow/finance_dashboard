@@ -22,7 +22,7 @@ country_config = {
 }
 
 # --- Read in data ---
-data_folder = "../newData/"
+data_folder = "newData/"
 transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data.csv", sep=",",  encoding="utf8")
 cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv", sep=",",  encoding="utf8")
 users_data = pd.read_csv(data_folder + "cleaned_users_data.csv", sep=",",  encoding="utf8")
@@ -48,6 +48,19 @@ timed_transaction_data = transaction_data
 #timed_branche_data = transaction_data
 timed_unternehmen_data = transaction_data
 
+merchant_stats = transaction_data
+
+
+
+# ALLE STANDARDWERTE FÜR UN-FILTER
+min_niederlassungen = int(1)
+max_niederlassungen = int(10000)
+
+min_avg_transaction = float(-323)
+max_avg_transaction = float(2567.1)
+
+min_revenue = float(-323)
+max_revenue = float(1000000)
 
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -84,9 +97,14 @@ app.layout = dbc.Container([
             ], width=12, className="d-flex py-2 gap-2 justify-content-start"),
         ], width=6, className="py-3 filterbar"),
         dbc.Col([
-            dbc.Button('Detailansicht anzeigen', className='btn primary', id="toggle-button" , n_clicks=0)
-        ])
-    ], className="navbar"),
+                
+                    dcc.RangeSlider(id="niederlassungen_range_slider"),
+                    dcc.RangeSlider(id="avg_transaction_range_slider"),
+                    dcc.RangeSlider(id="revenue_range_slider")
+                
+            ],width=6, id='additional-filters', className="mx-0 px-0") # FILTER (Simon)
+        ]),
+
     dbc.Row([
         dbc.Col([
                 
@@ -127,6 +145,150 @@ app.layout = dbc.Container([
         ], className="h-100")
     ], width=12, className="h-100 position-absolute left-0", id="popup")
 ], fluid=True, className="body position-relative")
+
+
+
+# Einklappbare Filter (HTML)----------------------------------------------------------------
+@callback(
+    Output('additional-filters', 'children'),
+    Input('category_dropdown', 'value'),
+)
+def display_additional_filters(category):
+    if category != 'Unternehmen':
+        return None
+
+    return dbc.Card([
+            dbc.CardBody([
+
+                # Niederlassungen
+                dbc.Row([
+                    dbc.Col(html.Label("Niederlassungen"), width=3, style={"textAlign": "right", "paddingTop": "10px"}),
+                    dbc.Col(dcc.RangeSlider(
+                        id='niederlassungen_range_slider',
+                        min=min_niederlassungen,
+                        max=max_niederlassungen,
+                        step=1,
+                        value=[min_niederlassungen, max_niederlassungen],
+                        tooltip={"always_visible": False, "placement": "top"},
+                        marks={
+                            min_niederlassungen: str(min_niederlassungen),
+                            max_niederlassungen: str(max_niederlassungen)
+                        }
+                    ), width=9),
+                ], className="mb-3"),
+
+                # durchschn. Transaktionshöhe
+                dbc.Row([
+                    dbc.Col(html.Label("Ø Transaktionshöhe (€)"), width=3, style={"textAlign": "right", "paddingTop": "10px"}),
+                    dbc.Col(dcc.RangeSlider(
+                        id='avg_transaction_range_slider',
+                        min=min_avg_transaction,
+                        max=max_avg_transaction,
+                        step=10,
+                        value=[min_avg_transaction, max_avg_transaction],
+                        tooltip={"always_visible": False, "placement": "top"},
+                        marks={
+                            min_avg_transaction: str(min_avg_transaction),
+                            max_avg_transaction: str(max_avg_transaction)
+                        }
+                    ), width=9),
+                ], className="mb-3"),
+
+                # Gesamtumsatz
+                dbc.Row([
+                    dbc.Col(html.Label("Gesamtumsatz (€)"), width=3, style={"textAlign": "right", "paddingTop": "10px"}),
+                    dbc.Col(dcc.RangeSlider(
+                        id='revenue_range_slider',
+                        min=min_revenue,
+                        max=max_revenue,
+                        step=1000,
+                        value=[min_revenue, max_revenue],
+                        tooltip={"always_visible": False, "placement": "top"},
+                        marks={
+                            min_revenue: str(min_revenue),
+                            max_revenue: str(max_revenue)
+                        }
+                    ), width=9),
+                ]),
+            ]),
+    ])
+
+def UNFilterlogik(min_niederlassungen, max_niederlassungen, min_avg_transaction, max_avg_transaction, min_revenue, max_revenue):
+    # Umsatz Gesamt
+    revenue_per_merchant = timed_transaction_data.groupby('merchant_id')['amount'].sum().rename('gesamtumsatz')
+
+    # Durchschnittliche Transaktionshöhe
+    avg_transaction = timed_transaction_data.groupby('merchant_id')['amount'].mean().rename('avg_transaction')
+
+    # Anzahl der Niederlassungen
+    niederlassungen_per_merchant = (
+        timed_transaction_data.groupby('merchant_id')
+        .apply(lambda g: g[['merchant_city', 'merchant_state']].drop_duplicates().shape[0], include_groups=False)
+        .rename('niederlassungen')
+    )
+
+    # zusammenführen    
+    merchant_stats = (
+        revenue_per_merchant
+        .to_frame()
+        .join(avg_transaction)
+        .join(niederlassungen_per_merchant)
+        
+        .reset_index()
+    )
+
+    # Umbenennen und Runden für Darstellung
+    merchant_stats.columns = [
+        "merchant_id", "revenue", "avg_transaction", "niederlassungen"
+    ]
+    merchant_stats = merchant_stats.round(1)
+    
+
+    min_niederlassungen = int(merchant_stats['niederlassungen'].min())
+    max_niederlassungen = int(merchant_stats['niederlassungen'].max())
+
+    min_avg_transaction = float(merchant_stats['avg_transaction'].min())
+    max_avg_transaction = float(merchant_stats['avg_transaction'].max())
+
+    min_revenue = float(merchant_stats['revenue'].min())
+    max_revenue = float(merchant_stats['revenue'].max())
+
+    return merchant_stats, min_niederlassungen, max_niederlassungen, min_avg_transaction, max_avg_transaction, min_revenue, max_revenue
+
+#callback für output der unternehmensliste nach filtern
+@callback(
+    Output('entity_dropdown', 'options'),
+    Input('niederlassungen_range_slider', 'value'),
+    Input('avg_transaction_range_slider', 'value'),
+    Input('revenue_range_slider', 'value'),
+    Input('category_dropdown', 'value')
+)
+def filter_merchants_or_mcc(niederlassungen_range, avg_trans_range, revenue_range, category_value):
+    if category_value == 'Unternehmen':
+
+        if not all([niederlassungen_range, avg_trans_range, revenue_range]):
+            return []
+
+        filtered_df = merchant_stats.copy()
+       
+        # Weitere Filter anwenden
+        filtered_df = filtered_df[
+            (filtered_df['niederlassungen'] >= niederlassungen_range[0]) &
+            (filtered_df['niederlassungen'] <= niederlassungen_range[1]) &
+            (filtered_df['avg_transaction'] >= avg_trans_range[0]) &
+            (filtered_df['avg_transaction'] <= avg_trans_range[1]) &
+            (filtered_df['revenue'] >= revenue_range[0]) &
+            (filtered_df['revenue'] <= revenue_range[1])
+        ]
+        # Rückgabe der gefilterten Händler als Dropdown-Optionen
+        return [{'label': str(mid), 'value': str(mid)} for mid in filtered_df['merchant_id'].unique()]
+    else: # category_value == 'Branchen'
+        # Hier Branchenfilteroption: alle Branchen
+        return [
+            {"label": cat, "value": str(mcc)}
+            for mcc, cat in mcc_codes_data[["mcc_code", "description"]].drop_duplicates().values
+        ]
+
 
 #ZUGEWIESEN AN -------- TOMMY --------
 # TODOS: wenn "Branche" ausgewählt wird: alle Unternehmen in einer Branche
@@ -206,19 +368,7 @@ def renderMap(start_date, end_date, entity_value, category_value):
 
     return dcc.Graph(figure=fig)
 
-
-@callback(
-    Output('entity_dropdown', 'options'),
-    Input('category_dropdown', 'value')
-)
-def update_entity_dropdown(category):
-    if category == 'Branchen':
-        categories = [
-            {"label": cat, "value": str(mcc)}
-            for mcc, cat in mcc_codes_data[["mcc_code", "description"]].drop_duplicates().values
-        ]
-        return categories
-    return merchants.tolist()
+ 
 
 
 def getDateSelectionFrames(start_date, end_date, mcc):
@@ -228,7 +378,9 @@ def getDateSelectionFrames(start_date, end_date, mcc):
     transaction_data['mcc'] == int(mcc)
     timed_unternehmen_data = transaction_data
     
-        
+
+
+
 @callback(
     Output('right_section', 'children'),
     Input('category_dropdown', 'value'),
@@ -240,6 +392,7 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
     
     if category == 'Unternehmen' and entity_value is not None:
         getDateSelectionFrames(start_date_first, end_date_first, entity_value)
+        UNFilterlogik(min_niederlassungen, max_niederlassungen, min_avg_transaction, max_avg_transaction, min_revenue, max_revenue)
         print(entity_value)
         merchant_id = int(entity_value)
         df_merchant = transaction_data[transaction_data['merchant_id'] == merchant_id]
