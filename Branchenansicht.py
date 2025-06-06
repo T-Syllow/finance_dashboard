@@ -36,15 +36,18 @@ zeitraum_options = {
     "3 Jahre": 36
 }
 
+
 def create_kpi_cards(kpis):
     return [
         dbc.Col(
             dbc.Card(
                 dbc.CardBody(html.H5(kpi, className="card-title text-center")),
                 className="m-1 text-center shadow-sm"
-            ), width=6
+            ),
+            width=6
         ) for kpi in kpis
     ]
+
 
 # Layout
 app.layout = dbc.Container([
@@ -88,6 +91,7 @@ app.layout = dbc.Container([
 
 ], fluid=True)
 
+
 # Callback mit Plotly
 @app.callback(
     Output("umsatz-plot", "figure"),
@@ -108,6 +112,7 @@ def update_plot(selected_period_label):
         template="plotly_white"
     )
     return fig
+
 
 # App starten
 if __name__ == "__main__":

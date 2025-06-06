@@ -1,3 +1,4 @@
+app.py
 import json
 import locale
 from urllib.request import urlopen
@@ -408,7 +409,7 @@ def toggle_class(n1, n2, current_class):
     Output("detail-view", "children"),
     Input("category_dropdown", "value"),
     Input("entity_dropdown", "value"),
-    Input("date-range-start", "start_date"),#ä
+    Input("date-range-start", "start_date"),
     Input("date-range-start", "end_date"),
 )
 def render_detailview(category, entity, start_date_first, end_date_first):
@@ -475,7 +476,6 @@ def render_detailview(category, entity, start_date_first, end_date_first):
         BranchenAusgabenProClient = branchen_transaktionen.groupby("client_id")["amount"].sum()
         DurchschnittBranche = BranchenAusgabenProClient.mean()
 
-
         ConsumerMoneySpent= (DurchschnittBranche / Durchschnitt_gesamt) * 100
         ConsumerMoneySpent = f"{ConsumerMoneySpent:,.2f} % ".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -483,8 +483,8 @@ def render_detailview(category, entity, start_date_first, end_date_first):
 
 # =====================================================================================
 
-    #Unique Customers
-    EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
+        #Unique Customers
+        EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
 
        
 
@@ -496,7 +496,7 @@ def render_detailview(category, entity, start_date_first, end_date_first):
             {'durchschn. Transaktionen pro Käufer': DurchschnittTransaktionenProKäufer}, # Berechnet die Menge an Transaktionen, die ein Käufer im Durchschnitt im ausgewählten Zeitraum tätigt.
             {'Umsatzwachstum (%)': 87.42},  # (optional) diese KPI müsst ihr nicht berechnen!! 
             {'Consumer Money Spent (%)': ConsumerMoneySpent},  # Berechnet zunächst die durchschn. Menge an Geld, die ein User im Schnitt im ausgewählten Zeitraum ausgibt. Dann berechnet wie viel er für die Branche im durchschnitt ausgibt. und setzt es anschließend ins Verhältnis! ==> %
-            {'Unique Customers':  EinzigartigeKäufer}, # Wie viele einzigartige User haben im ausgewählten Zeitrsaum bei der Branche eingekauft?
+            {'Käufer':  EinzigartigeKäufer}, # Wie viele einzigartige User haben im ausgewählten Zeitrsaum bei der Branche eingekauft?
         ]
         
     fig1 = px.line(umsatz_Jahr_Merchant_top, x='year', y='Umsatz_im_Jahr', color='merchant_id', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
