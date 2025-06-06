@@ -23,7 +23,7 @@ country_config = {
 
 # --- Read in data ---
 data_folder = "../newData/"
-transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data.csv", sep=",",  encoding="utf8")
+transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_10k.csv", sep=",",  encoding="utf8")
 cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv", sep=",",  encoding="utf8")
 users_data = pd.read_csv(data_folder + "cleaned_users_data.csv", sep=",",  encoding="utf8")
 with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
@@ -33,27 +33,11 @@ mcc_codes_data = pd.DataFrame(list(mcc_dict.items()), columns=['mcc_code', 'desc
 # alle Händler
 merchants = transaction_data['merchant_id'].unique()
 
-# Jede Transaktion hat eine Merchant_id und einen mcc_code --> Wertpaar als neuer Dataframe
-merchant_mcc_relations = transaction_data[['merchant_id', 'mcc']].copy()
-
-# Händler Kategorien (Klartext)
-merchant_categories = mcc_codes_data['description'].unique().tolist()
-
-# Händler Kategorie Codes (ID)
-merchant_branche_codes = mcc_codes_data['mcc_code'].unique()
-
-state_counts = transaction_data.groupby("merchant_state").size().reset_index(name="transaction_count")
-
-timed_transaction_data = transaction_data
-#timed_branche_data = transaction_data
-timed_unternehmen_data = transaction_data
-
-
-
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 
 app.layout = dbc.Container([ 
+    dcc.Store(id='timed_transaction_data'),
     dbc.Row([
         dbc.Col([
             dbc.Col([
@@ -110,100 +94,52 @@ app.layout = dbc.Container([
     ], width=12, className="h-100 position-absolute left-0", id="popup")
 ], fluid=True, className="body position-relative")
 
-#ZUGEWIESEN AN -------- TOMMY --------
-# TODOS: wenn "Branche" ausgewählt wird: alle Unternehmen in einer Branche
-# 1. Ist Umsatz auf Landkarte anzeigen
-# 2. Vergleich Umsatz (damals/heute) anzeigen in Prozent als Tooltip.
-
-#ZUGEWIESEN AN -------- TOMMY --------
-# TODOS: wenn "Unternehmen" ausgewählt wird: alle Standorte (States) eines Unternehmens
-# 1. Unternehmensniederlassungen (States) nach Ist Umsatz einfärben
-# 2. Vergleich Umsatz (damals/heute) anzeigen in Prozent als Tooltip.
-# @callback(
-#     Output('map-container', 'children'),
-#     Input('date-range-start', 'start_date'),
-#     Input('date-range-start', 'end_date'),
-#     Input('entity_dropdown', 'value'),
-#     Input('category_dropdown', 'value'),
-# )
-# def renderMap(start_date_first, end_date_first, mcc, category):
-
-# # BRANCHE: 
-# # 1. Ist Umsatz(gesamt) der Branche - in jedem Bundesstaat - auf der Landkarte anzeigen:
-#     if (category == 'Branchen') & (mcc is not None):
-#         df_branche = transaction_data[transaction_data['mcc'] == int(mcc)]
-#         df = df_branche
-#         # Transaktionen im Zeitraum zwischen Start und End -- ERSTER DATEPICKER
-#         df['date'] = pd.to_datetime(df['date'])
-#         filtered_transaction_data = df[(df['date'] >= pd.to_datetime(start_date_first)) & (df['date'] <= pd.to_datetime(end_date_first))]
-
-#         geo_col = country_config['geo_column']
-#         scope = country_config['scope']
-#         location_mode = country_config.get('location_mode', None)
-
-#         #marketcap = filtered_transaction_data.groupby(geo_col).size().reset_index(name='transaction_count')
-#         marketcap = filtered_transaction_data.groupby(geo_col)['amount'].sum().reset_index(name="marketcap")
-#         marketcap["marketcap"] = marketcap["marketcap"]
-
-#         fig = px.choropleth(
-#                 marketcap,
-#                 locations=geo_col,
-#                 locationmode=location_mode,
-#                 color='marketcap',
-#                 color_continuous_scale="Blues",
-#                 scope=scope,
-#                 labels={geo_col: 'Bundesstaat', 'marketcap': 'Marktkapitalisierung'},
-#                 hover_data={geo_col: True, 'marketcap': True}
-#             )
-
-#         fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
-
-#         return dcc.Graph(figure=fig, className="py-5")
-
+@app.callback(
+    Output('timed_transaction_data', 'data'),
+    Input('date-range-start', 'start_date'),
+    Input('date-range-start', 'end_date'),
+)
+def update_timed_transaction_data(start_date, end_date):
+    df = transaction_data.copy()
+    df['date'] = pd.to_datetime(df['date'])
+    filtered = df[(df['date'] >= pd.to_datetime(start_date)) & (df['date'] <= pd.to_datetime(end_date))]
+    return filtered.to_dict('records')
 
 @callback(
     Output('map-container', 'children'),
-    Input('date-range-start', 'start_date'),
-    Input('date-range-start', 'end_date'),
-    #Input('date-range-end', 'start_date'),
-    #Input('date-range-end', 'end_date'),
+    Input('timed_transaction_data', 'data'),
     Input('entity_dropdown', 'value'),
     Input('category_dropdown', 'value'),
 )
-def renderMap(start_date, end_date, entity_value, category_value):
+def renderMap(timed_transaction_data, entity_value, category_value):
+    print("renderMap called")
+    if timed_transaction_data is None or entity_value is None:
+        print("timed_transaction_data is None or entity_value is None")
+        return None
 
-# BRANCHE: 
-# 1. Ist Umsatz(gesamt) der Branche - in jedem Bundesstaat - auf der Landkarte anzeigen:
-    filtered_data = transaction_data.copy()
-    filtered_data['date'] = pd.to_datetime(filtered_data['date'])
-    filtered_data = filtered_data[(filtered_data['date'] >= pd.to_datetime(start_date)) & 
-                                  (filtered_data['date'] <= pd.to_datetime(end_date))]
+    # DataFrame aus Store-Daten rekonstruieren
+    filtered_data = pd.DataFrame(timed_transaction_data)
+    if filtered_data.empty:
+        return dbc.Alert("Keine Daten im gewählten Zeitraum.", color="warning")
 
     geo_col = country_config['geo_column']
     scope = country_config['scope']
     location_mode = country_config.get('location_mode', None)
 
-
-    if entity_value is None: 
-        return None 
-
     if category_value == 'Branchen' and entity_value is not None:
         # Filtern nach MCC Code (Branche)
         df_filtered = filtered_data[filtered_data['mcc'] == int(entity_value)]
-        
         # Berechnung der Marktkapitalisierung (Umsatz) pro Bundesstaat für die Branche
         marketcap = df_filtered.groupby(geo_col)['amount'].sum().reset_index(name="marketcap")
-        
         title_text = f"Umsatz pro Bundesstaat für Branche: {mcc_dict.get(str(entity_value), 'Unbekannt')} ({entity_value})"
-        
     elif category_value == 'Unternehmen' and entity_value is not None:
         # Filtern nach merchant_id (Unternehmen)
         df_filtered = filtered_data[filtered_data['merchant_id'] == int(entity_value)]
-
         # Berechnung des Umsatzes pro Bundesstaat für das Unternehmen
         marketcap = df_filtered.groupby(geo_col)['amount'].sum().reset_index(name="marketcap")
-
         title_text = f"Umsatz pro Bundesstaat für Unternehmen: {entity_value}"
+    else:
+        return "HALLO"
 
     if not marketcap.empty:
         fig = px.choropleth(
@@ -216,10 +152,10 @@ def renderMap(start_date, end_date, entity_value, category_value):
             labels={geo_col: 'Bundesstaat', 'marketcap': 'Umsatz'},
             hover_data={geo_col: True, 'marketcap': True}
         )
-
         fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0}, title_text=title_text)
-
-    return dcc.Graph(figure=fig)
+        return dcc.Graph(figure=fig)
+    else:
+        return dbc.Alert("Keine Daten für diese Auswahl.", color="warning")
 
 @callback(
     Output('entity_dropdown', 'options'),
@@ -235,43 +171,137 @@ def update_entity_dropdown(category):
     return merchants.tolist()
 
 
-def getDateSelectionFrames(start_date, end_date, mcc):
-    transaction_data['date'] = pd.to_datetime(transaction_data['date'])
-    timed_transaction_data = transaction_data[(transaction_data['date'] >= pd.to_datetime(start_date)) & (transaction_data['date'] <= pd.to_datetime(end_date))]
-    timed_branche_data = timed_transaction_data[timed_transaction_data['mcc'] == int(mcc)]
-    transaction_data['mcc'] == int(mcc)
-    timed_unternehmen_data = transaction_data
+
     
         
+# @callback(
+#     Output('right_section', 'children'),
+#     Input('category_dropdown', 'value'),
+#     Input('entity_dropdown', 'value'),
+#     Input('date-range-start', 'start_date'),
+#     Input('date-range-start', 'end_date'),
+# )
+# def update_right_section(category, entity_value, start_date_first, end_date_first):
+    
+#     if category == 'Unternehmen' and entity_value is not None:
+#         print(entity_value)
+#         merchant_id = int(entity_value)
+#         df_merchant = transaction_data[transaction_data['merchant_id'] == merchant_id]
+
+#         if df_merchant.empty:
+#             return dbc.Alert("Keine Daten für dieses Unternehmen verfügbar.", color="warning")
+
+#         # Umsatz berechnen
+#         total_revenue = df_merchant['amount'].sum()
+
+#         # Niederlassungen: Stadt + Bundesstaat
+#         standorte = (
+#             df_merchant[['merchant_city', 'merchant_state']]
+#             .drop_duplicates()
+#             .sort_values(by=['merchant_state', 'merchant_city'])
+#         )
+
+#         # Formatierung der Standorte als Bullet-List
+#         standort_liste = html.Ul([
+#             html.Li(f"{row['merchant_city']}, {row['merchant_state']}")
+#             for _, row in standorte.iterrows()
+#         ])
+
+#         return dbc.Card([
+#             dbc.CardHeader(f"Händler-ID: {merchant_id}"),
+#             dbc.CardBody([
+#                 html.H5("Unternehmensprofil", className="card-title"),
+#                 html.P(f"Gesamtumsatz: {total_revenue:.2f} €", className="card-text"),
+#                 html.P(f"Anzahl Transaktionen: {len(df_merchant)}", className="card-text"),
+#                 html.H6("Niederlassungen:"),
+#                 standorte.__len__(),
+#                 #standort_liste
+#             ])
+#         ], color="light", outline=True)
+
+#     if category == 'Branchen' and entity_value is not None:
+#         df_branche = transaction_data.query(f"mcc == {entity_value}")
+
+#         df = df_branche
+
+#         # Transaktionen im Zeitraum zwischen Start und End -- ERSTER DATEPICKER
+#         df['date'] = pd.to_datetime(df['date'])
+#         filtered_transaction_data = df[(df['date'] >= pd.to_datetime(start_date_first)) & (df['date'] <= pd.to_datetime(end_date_first))]
+#         filtered_transaction_data['date'] = pd.to_datetime(filtered_transaction_data['date']).dt.date
+#         start_date_first = pd.to_datetime(start_date_first).date() 
+#         end_date_first = pd.to_datetime(end_date_first).date() 
+
+#         if filtered_transaction_data.empty: 
+#             return dbc.Col([
+#                 dbc.Row([
+#                     dbc.Alert('keine Daten in diesem Zeitraum verfügbar!', className="fs-5 text", color="danger"),
+#                 ]),
+#             ], className="ranklist_container p-4")
+
+
+#         #Gruppiere nach merchant_id und summiere den Umsatz (amount)
+#         umsatz_pro_merchant = (
+#             filtered_transaction_data.groupby("merchant_id")['amount']
+#             .sum()
+#             .reset_index()
+#             .rename(columns={"amount": "total_revenue"})
+#             .sort_values(by="total_revenue", ascending=False)
+#         )
+
+#         top_5 = umsatz_pro_merchant.nlargest(5, 'total_revenue')
+#         flop_5 = umsatz_pro_merchant.nsmallest(5, 'total_revenue')
+
+#         top_content = [
+#             dbc.ListGroupItem(
+#                 f" Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} €"
+#             , className="ranklist_item")
+#             for i, row in top_5.iterrows()
+#         ]
+
+#         flop_content = [
+#             dbc.ListGroupItem(
+#                 f" Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} €"
+#             , className="ranklist_item")
+#             for i, row in flop_5.iterrows()
+#         ]
+
+#         # Wenn "Branchen" gewählt ist -> Top/Flop-Liste
+#         return dbc.Col([
+#             dbc.Row([
+#                 dbc.Label('Top 5', className="fs-2 text"),
+#                 dbc.ListGroup(top_content, numbered=True, id="top_list", className="ranklist p-4")
+#             ]),
+#             dbc.Row([
+#                 dbc.Label('Flop 5', className="fs-2 text"),
+#                 dbc.ListGroup(flop_content, numbered=True, id="flop_list", className="ranklist p-4")
+#             ])
+#         ], className="ranklist_container p-4")    
+
 @callback(
     Output('right_section', 'children'),
     Input('category_dropdown', 'value'),
     Input('entity_dropdown', 'value'),
-    Input('date-range-start', 'start_date'),
-    Input('date-range-start', 'end_date'),
+    Input('timed_transaction_data', 'data'),
 )
-def update_right_section(category, entity_value, start_date_first, end_date_first):
-    
+def update_right_section(category, entity_value, timed_transaction_data):
+    if timed_transaction_data is None or entity_value is None:
+        return None
+
+    df = pd.DataFrame(timed_transaction_data)
+
     if category == 'Unternehmen' and entity_value is not None:
-        getDateSelectionFrames(start_date_first, end_date_first, entity_value)
-        print(entity_value)
         merchant_id = int(entity_value)
-        df_merchant = transaction_data[transaction_data['merchant_id'] == merchant_id]
+        df_merchant = df[df['merchant_id'] == merchant_id]
 
         if df_merchant.empty:
             return dbc.Alert("Keine Daten für dieses Unternehmen verfügbar.", color="warning")
 
-        # Umsatz berechnen
         total_revenue = df_merchant['amount'].sum()
-
-        # Niederlassungen: Stadt + Bundesstaat
         standorte = (
             df_merchant[['merchant_city', 'merchant_state']]
             .drop_duplicates()
             .sort_values(by=['merchant_state', 'merchant_city'])
         )
-
-        # Formatierung der Standorte als Bullet-List
         standort_liste = html.Ul([
             html.Li(f"{row['merchant_city']}, {row['merchant_state']}")
             for _, row in standorte.iterrows()
@@ -284,34 +314,23 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
                 html.P(f"Gesamtumsatz: {total_revenue:.2f} €", className="card-text"),
                 html.P(f"Anzahl Transaktionen: {len(df_merchant)}", className="card-text"),
                 html.H6("Niederlassungen:"),
-                standorte.__len__(),
+                len(standorte),
                 #standort_liste
             ])
         ], color="light", outline=True)
 
     if category == 'Branchen' and entity_value is not None:
-        df_branche = transaction_data.query(f"mcc == {entity_value}")
+        df_branche = df[df['mcc'] == int(entity_value)]
 
-        df = df_branche
-
-        # Transaktionen im Zeitraum zwischen Start und End -- ERSTER DATEPICKER
-        df['date'] = pd.to_datetime(df['date'])
-        filtered_transaction_data = df[(df['date'] >= pd.to_datetime(start_date_first)) & (df['date'] <= pd.to_datetime(end_date_first))]
-        filtered_transaction_data['date'] = pd.to_datetime(filtered_transaction_data['date']).dt.date
-        start_date_first = pd.to_datetime(start_date_first).date() 
-        end_date_first = pd.to_datetime(end_date_first).date() 
-
-        if filtered_transaction_data.empty: 
+        if df_branche.empty: 
             return dbc.Col([
                 dbc.Row([
                     dbc.Alert('keine Daten in diesem Zeitraum verfügbar!', className="fs-5 text", color="danger"),
                 ]),
             ], className="ranklist_container p-4")
 
-
-        #Gruppiere nach merchant_id und summiere den Umsatz (amount)
         umsatz_pro_merchant = (
-            filtered_transaction_data.groupby("merchant_id")['amount']
+            df_branche.groupby("merchant_id")['amount']
             .sum()
             .reset_index()
             .rename(columns={"amount": "total_revenue"})
@@ -323,19 +342,20 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
 
         top_content = [
             dbc.ListGroupItem(
-                f" Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} €"
-            , className="ranklist_item")
-            for i, row in top_5.iterrows()
+                f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} €",
+                className="ranklist_item"
+            )
+            for _, row in top_5.iterrows()
         ]
 
         flop_content = [
             dbc.ListGroupItem(
-                f" Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} €"
-            , className="ranklist_item")
-            for i, row in flop_5.iterrows()
+                f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} €",
+                className="ranklist_item"
+            )
+            for _, row in flop_5.iterrows()
         ]
 
-        # Wenn "Branchen" gewählt ist -> Top/Flop-Liste
         return dbc.Col([
             dbc.Row([
                 dbc.Label('Top 5', className="fs-2 text"),
@@ -345,7 +365,7 @@ def update_right_section(category, entity_value, start_date_first, end_date_firs
                 dbc.Label('Flop 5', className="fs-2 text"),
                 dbc.ListGroup(flop_content, numbered=True, id="flop_list", className="ranklist p-4")
             ])
-        ], className="ranklist_container p-4")    
+        ], className="ranklist_container p-4")
 
 @app.callback(
     Output("popup", "className"),
