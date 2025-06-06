@@ -280,7 +280,7 @@ def process_branchen_data(df, entity, start_date, end_date):
     branchen_transaktionen["year"] = pd.to_datetime(branchen_transaktionen["date"]).dt.year
     umsatz_Jahr_Merchant = branchen_transaktionen.groupby(["year", "merchant_id"])["amount"].sum().reset_index(name="Umsatz_im_Jahr")
     umsatz_pro_merchant = umsatz_Jahr_Merchant.groupby("merchant_id")["Umsatz_im_Jahr"].sum().reset_index(name="gesamtumsatz")
-    return umsatz_Jahr_Merchant, umsatz_pro_merchant
+    return umsatz_Jahr_Merchant, umsatz_pro_merchant, branchen_transaktionen
 
 def create_kpi_cards(kpis):
     return [
@@ -321,19 +321,74 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
     df['date'] = pd.to_datetime(df['date'])
 
     if category == 'Branchen' and entity is not None:
-        umsatz_Jahr_Merchant, umsatz_pro_merchant = process_branchen_data(df, entity, start_date_first, end_date_first)
+        umsatz_Jahr_Merchant, umsatz_pro_merchant, branchen_transaktionen = process_branchen_data(df, entity, start_date_first, end_date_first)
         top_5 = umsatz_pro_merchant.nlargest(5, 'gesamtumsatz')
         flop_5 = umsatz_pro_merchant.nsmallest(5, 'gesamtumsatz')
         fig1, fig2 = create_branchen_charts(umsatz_Jahr_Merchant, top_5, flop_5)
 
+        # ============================= Code Start ============================================
+
+         #Marktkapitalisierung berechnet
+
+        Marktkapitalisierung = umsatz_pro_merchant["gesamtumsatz"].sum()  
+        Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        # =====================================================================================
+
+
+    
+
+        #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
+        #branchen_transaktionen = time_transaction_data[time_transaction_data['mcc'] == int(entity)]
+
+        GesamtTransaktionen = branchen_transaktionen["merchant_id"].count()
+        EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
+        DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
+
+        DurchschnittTransaktionenProKäufer = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        # =====================================================================================
+
+        #Durchschnittliche Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum
+
+        #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
+        DurchschnittTransaktionshöhe = branchen_transaktionen['amount'].mean()
+        DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} € ".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        # =====================================================================================
+        
+        # Eine Serie, in der jeder Kunde (client_id) mit der Gesamtsumme seiner Ausgaben (amount) verknüpft ist.
+        GesamtAusgabenProClient = transaction_data.groupby("client_id")["amount"].sum()
+        # Ein einzelner Wert, der den durchschnittlichen Betrag angibt, den ein Kunde insgesamt ausgegeben hat.
+        Durchschnitt_gesamt = GesamtAusgabenProClient.mean()
+        
+        
+        BranchenAusgabenProClient = branchen_transaktionen.groupby("client_id")["amount"].sum()
+
+        # Ein einzelner Wert, der den durchschnittlichen Betrag angibt, den ein Kunde in der Branche ausgegeben hat.
+        DurchschnittBranche = BranchenAusgabenProClient.mean()
+
+        # "ConsumerMoneySpent" = Ein Wert, der angibt, wie viel Prozent der Gesamtausgaben eines durchschnittlichen Kunden in der betrachteten Branche ausgegeben werden.
+        ConsumerMoneySpent= (DurchschnittBranche / Durchschnitt_gesamt) * 100
+        ConsumerMoneySpent = f"{ConsumerMoneySpent:,.2f} % ".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        # =====================================================================================
+
+        #Unique Customers
+        EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
+
+       
+
+
+        # ============================= Code Ende =============================================
         kpis = [
-            {'Marktkapitalisierung': 100000000},
-            {'durchschn. Transaktionshöhe': 380.20},
-            {'durchschn. Transaktionen pro Käufer': 100000000},
-            {'Umsatzwachstum (%)': 87.32},
-            {'Consumer Money Spent (%)': 100000000},
-            {'Unique Customers': 2102},
-        ]
+                {'Marktkapitalisierung': Marktkapitalisierung},   # Berechnet die Marktkapitalisierung 
+                {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöhe},    # Berechnet die durchschn. Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum in Euro 
+                {'durchschn. Transaktionen pro Käufer': DurchschnittTransaktionenProKäufer}, # Berechnet die Menge an Transaktionen, die ein Käufer im Durchschnitt im ausgewählten Zeitraum tätigt.
+                {'Umsatzwachstum (%)': 87.42},  # (optional) diese KPI müsst ihr nicht berechnen!! 
+                {'Consumer Money Spent (%)': ConsumerMoneySpent},  # Berechnet zunächst die durchschn. Menge an Geld, die ein User im Schnitt im ausgewählten Zeitraum ausgibt. Dann berechnet wie viel er für die Branche im durchschnitt ausgibt. und setzt es anschließend ins Verhältnis! ==> %
+                {'Käufer':  EinzigartigeKäufer}, # Wie viele einzigartige User haben im ausgewählten Zeitrsaum bei der Branche eingekauft?
+            ]
 
         return [
             dbc.Col(create_kpi_cards(kpis), width=5, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
@@ -353,13 +408,42 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
         ]
 
     if category == 'Unternehmen' and entity is not None:
+
+        df = pd.DataFrame(timed_transaction_data)
+
+        unternehmen_transaktionen = df[df['merchant_id'] == entity]
+
+        Marktkapitalisierung = unternehmen_transaktionen["amount"].sum()
+        Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        DurchschnittTransaktionshöhe = unternehmen_transaktionen['amount'].mean()
+        DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} € ".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        GesamtTransaktionen = unternehmen_transaktionen["merchant_id"].count()
+        EinzigartigeKäufer = unternehmen_transaktionen["client_id"].nunique()
+        DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
+        DurchschnittTransaktionenProKäufer = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        GesamtAusgabenProClient = df.groupby("client_id")["amount"].sum()
+        Durchschnitt_gesamt = GesamtAusgabenProClient.mean()
+        UnternehmensAusgabenProClient = unternehmen_transaktionen.groupby("client_id")["amount"].sum()
+
+        DurchschnittBranche = UnternehmensAusgabenProClient.mean()
+        ConsumerMoneySpent = (DurchschnittBranche / Durchschnitt_gesamt) * 100
+        ConsumerMoneySpent = f"{ConsumerMoneySpent:,.2f} % ".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        CustomerLifetimeValue = Durchschnitt_gesamt / EinzigartigeKäufer * 100
+        CustomerLifetimeValue = f"{CustomerLifetimeValue:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
         kpis = [
-            {'Marktkapitalisierung': 100000000},
-            {'durchschn. Transaktionshöhe': 380.20},
-            {'durchschn. Transaktionen pro Käufer': 100000000},
-            {'Umsatzwachstum (%)': 87.32},
-            {'Consumer Money Spent (%)': 100000000},
-            {'Unique Customers': 2102},
+            {'Markt- kapitalisierung': Marktkapitalisierung},
+            {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöhe},
+            {'durchschn. Transaktionen pro Käufer': DurchschnittTransaktionenProKäufer},
+            {'Umsatzwachstum (%)': 87.42},
+            {'Consumer Money Spent (%)': ConsumerMoneySpent},
+            {'Käufer': EinzigartigeKäufer},
+            {'Customer Lifetime Value': CustomerLifetimeValue},
         ]
 
         return [
@@ -369,6 +453,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
                 dbc.Col([html.Div("Persona")], width=12, className="detail-view-right-section-2"),
             ], width=7, className="detail-view-right-section")
         ]
+    
     
 @app.callback(
     Output("branche_title", "children"),

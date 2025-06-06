@@ -86,10 +86,11 @@
 
 .kpi-card-body:hover {
     transition: 225ms ease-in-out;
+    border-color: #0d6efd !important;
 }
 
 .kpi-card-body:hover {
-    background-color: green;
+    background-color: #0d6efd;
     color: white;
     cursor: pointer;
 }
