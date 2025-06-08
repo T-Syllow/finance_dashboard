@@ -56,9 +56,17 @@
     top: 0;
 }
 
-.detail-view-left-section::-webkit-scrollbar {
-    display: none;
+.detail-view-left-section {
+    
 } 
+
+.detail-view-kpis {
+    height: 60%;
+}
+
+.detail-view-kpis::-webkit-scrollbar {
+    display: none;
+}
 
 .detail-view-right-section-1 {
     height: 60%;

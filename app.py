@@ -1,5 +1,5 @@
-# Imports
 import json
+import locale
 from urllib.request import urlopen
 from dash import Dash, State, html, dash_table, Input, Output, callback, dcc
 import pandas as pd
@@ -12,6 +12,8 @@ import numpy as np
 
 with urlopen('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json') as response:
     counties = json.load(response)
+
+locale.setlocale(locale.LC_ALL, 'de_DE.UTF-8')
 
 counties["features"][0]
 
@@ -379,6 +381,61 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
 
        
 
+    #Marktkapitalisierung berechnet
+
+        Marktkapitalisierung = umsatz_pro_merchant["gesamtumsatz"].sum()  
+        Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        print("Marktkapitalisierung: ", Marktkapitalisierung)
+
+# =====================================================================================
+
+
+    #Durchschnitt der Transaktionen Pro Käufer - noch nicht fertig 
+
+        #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
+        #branchen_transaktionen = time_transaction_data[time_transaction_data['mcc'] == int(entity)]
+
+        GesamtTransaktionen = branchen_transaktionen["merchant_id"].count()
+        EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
+        DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
+
+        DurchschnittTransaktionenProKäufer = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        print("Durchschnitt der Transaktionen pro Käufer: ", DurchschnittTransaktionenProKäufer)
+
+
+# =====================================================================================
+
+    #Durchschnittliche Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum
+
+        #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
+        DurchschnittTransaktionshöhe = branchen_transaktionen['amount'].mean()
+        DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} € ".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        print("Durchschnittliche Transaktionshöhe: ", DurchschnittTransaktionshöhe)
+
+# =====================================================================================
+        
+    #Consumer Money Spent (%)
+        
+        GesamtAusgabenProClient = transaction_data.groupby("client_id")["amount"].sum()
+        Durchschnitt_gesamt = GesamtAusgabenProClient.mean()
+
+        BranchenAusgabenProClient = branchen_transaktionen.groupby("client_id")["amount"].sum()
+        DurchschnittBranche = BranchenAusgabenProClient.mean()
+
+        ConsumerMoneySpent= (DurchschnittBranche / Durchschnitt_gesamt) * 100
+        ConsumerMoneySpent = f"{ConsumerMoneySpent:,.2f} % ".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        print("Consumer Money Spent (%):", ConsumerMoneySpent)
+
+# =====================================================================================
+
+        #Unique Customers
+        EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
+
+       
+
 
         # ============================= Code Ende =============================================
         kpis = [
@@ -472,9 +529,17 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
         ]
 
         return [
-            dbc.Col(
-                create_kpi_cards(kpis)
-             , width=5, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
+            dbc.Col([
+                dbc.Col(
+                    create_kpi_cards(kpis)
+                ,width=12, className="detail-view-kpis d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
+                dbc.Col([
+                    html.Div("Kreisdiagramme"),
+                    dbc.Col([
+
+                    ], width=12, id="gesamtkapitalisierung_container")
+                ], width=12)
+            ], width=5, className="detail-view-left-section" ),
             dbc.Col([
                 dbc.Col([
                     html.Div("Plots"),
