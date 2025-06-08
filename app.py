@@ -1,5 +1,5 @@
-# Imports
 import json
+import locale
 from urllib.request import urlopen
 from dash import Dash, State, html, dash_table, Input, Output, callback, dcc
 import pandas as pd
@@ -12,6 +12,8 @@ import numpy as np
 
 with urlopen('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json') as response:
     counties = json.load(response)
+
+locale.setlocale(locale.LC_ALL, 'de_DE.UTF-8')
 
 counties["features"][0]
 
@@ -379,6 +381,61 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
 
        
 
+    #Marktkapitalisierung berechnet
+
+        Marktkapitalisierung = umsatz_pro_merchant["gesamtumsatz"].sum()  
+        Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        print("Marktkapitalisierung: ", Marktkapitalisierung)
+
+# =====================================================================================
+
+
+    #Durchschnitt der Transaktionen Pro Käufer - noch nicht fertig 
+
+        #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
+        #branchen_transaktionen = time_transaction_data[time_transaction_data['mcc'] == int(entity)]
+
+        GesamtTransaktionen = branchen_transaktionen["merchant_id"].count()
+        EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
+        DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
+
+        DurchschnittTransaktionenProKäufer = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        print("Durchschnitt der Transaktionen pro Käufer: ", DurchschnittTransaktionenProKäufer)
+
+
+# =====================================================================================
+
+    #Durchschnittliche Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum
+
+        #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
+        DurchschnittTransaktionshöhe = branchen_transaktionen['amount'].mean()
+        DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} € ".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        print("Durchschnittliche Transaktionshöhe: ", DurchschnittTransaktionshöhe)
+
+# =====================================================================================
+        
+    #Consumer Money Spent (%)
+        
+        GesamtAusgabenProClient = transaction_data.groupby("client_id")["amount"].sum()
+        Durchschnitt_gesamt = GesamtAusgabenProClient.mean()
+
+        BranchenAusgabenProClient = branchen_transaktionen.groupby("client_id")["amount"].sum()
+        DurchschnittBranche = BranchenAusgabenProClient.mean()
+
+        ConsumerMoneySpent= (DurchschnittBranche / Durchschnitt_gesamt) * 100
+        ConsumerMoneySpent = f"{ConsumerMoneySpent:,.2f} % ".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        print("Consumer Money Spent (%):", ConsumerMoneySpent)
+
+# =====================================================================================
+
+        #Unique Customers
+        EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
+
+       
+
 
         # ============================= Code Ende =============================================
         kpis = [
@@ -388,7 +445,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
                 {'Umsatzwachstum (%)': 87.42},  # (optional) diese KPI müsst ihr nicht berechnen!! 
                 {'Consumer Money Spent (%)': ConsumerMoneySpent},  # Berechnet zunächst die durchschn. Menge an Geld, die ein User im Schnitt im ausgewählten Zeitraum ausgibt. Dann berechnet wie viel er für die Branche im durchschnitt ausgibt. und setzt es anschließend ins Verhältnis! ==> %
                 {'Käufer':  EinzigartigeKäufer}, # Wie viele einzigartige User haben im ausgewählten Zeitrsaum bei der Branche eingekauft?
-            ]
+        ]
 
         return [
             dbc.Col(create_kpi_cards(kpis), width=5, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
@@ -403,7 +460,9 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
                         ),
                     ]),
                 ], width=12, className="detail-view-right-section-1"),
-                dbc.Col([html.Div("Persona")], width=12, className="detail-view-right-section-2"),
+                dbc.Col([
+                    html.Div("Persona"),
+                ], width=12, className="detail-view-right-section-2"),
             ], width=7, className="detail-view-right-section")
         ]
 
@@ -421,7 +480,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
         umsatz_pro_monat['month'] = umsatz_pro_monat['month'].astype(str)  # Monat in String umwandeln für die Darstellung
 
         # Bar-Chart erstellen
-        fig_bar_chart = px.bar(
+        bar_umsatz_pro_monat = px.bar(
             umsatz_pro_monat,
             x='month',
             y='amount',
@@ -431,7 +490,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
         )
 
         # Formatierung des Bar-Charts
-        fig_bar_chart.update_layout(
+        bar_umsatz_pro_monat.update_layout(
             xaxis_title="Monat",
             yaxis_title="Umsatz (€)",
             template="plotly_white"
@@ -460,6 +519,30 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
         CustomerLifetimeValue = Durchschnitt_gesamt / EinzigartigeKäufer * 100
         CustomerLifetimeValue = f"{CustomerLifetimeValue:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
 
+        bundesstaat_transaktionen = df.groupby('merchant_state')['merchant_id'].count().reset_index(name='transaction_count')
+
+        # Sortiere die Bundesstaaten nach der Anzahl der Transaktionen und wähle die Top 3 aus
+        top_3_bundesstaaten = bundesstaat_transaktionen.nlargest(3, 'transaction_count')
+
+        top_3_bundesstaaten = top_3_bundesstaaten.sort_values(by='transaction_count', ascending=True)
+
+        # Bar-Chart erstellen
+        fig_bar_chart = px.bar(
+            top_3_bundesstaaten,
+            x='transaction_count',
+            y='merchant_state',
+            orientation='h',  # Horizontaler Bar-Chart
+            title='Top 3 Bundesstaaten nach Anzahl der Transaktionen',
+            labels={'transaction_count': 'Anzahl der Transaktionen', 'merchant_state': 'Bundesstaat'},
+            text_auto=True
+        )
+
+        # Layout des Bar-Charts anpassen
+        fig_bar_chart.update_layout(
+            xaxis_title="Anzahl der Transaktionen",
+            yaxis_title="Bundesstaat",
+            template="plotly_white"
+        )
 
         kpis = [
             {'Markt- kapitalisierung': Marktkapitalisierung},
@@ -472,16 +555,25 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
         ]
 
         return [
-            dbc.Col(
-                create_kpi_cards(kpis)
-             , width=5, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
+            dbc.Col([
+                dbc.Col(
+                    create_kpi_cards(kpis)
+                ,width=12, className="detail-view-kpis d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
+                dbc.Col([
+                    html.Div("Kreisdiagramme"),
+                    dbc.Col([
+
+                    ], width=12, id="gesamtkapitalisierung_container")
+                ], width=12)
+            ], width=5, className="detail-view-left-section" ),
             dbc.Col([
                 dbc.Col([
                     html.Div("Plots"),
-                    dcc.Graph(figure=fig_bar_chart)
+                    dcc.Graph(figure=bar_umsatz_pro_monat)
                 ], width=12, className="detail-view-right-section-1"),
                 dbc.Col([
-                    html.Div("Persona")
+                    html.Div("Persona"),
+                    dcc.Graph(figure=fig_bar_chart)
                 ], width=12, className="detail-view-right-section-2"),
             ], width=7, className="detail-view-right-section")
         ]
