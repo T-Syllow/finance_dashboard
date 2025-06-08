@@ -25,9 +25,10 @@ country_config = {
 
 # --- Read in data ---
 data_folder = "./newData/"
-transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_10k.csv", sep=",",  encoding="utf8")
-cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv", sep=",",  encoding="utf8")
-users_data = pd.read_csv(data_folder + "cleaned_users_data.csv", sep=",",  encoding="utf8")
+parquet_folder = "./parquet_data/"
+transaction_data = pd.read_parquet(parquet_folder + "cleaned_transaction_data_50k.parquet", columns=["id","date","client_id","card_id","amount","merchant_id","merchant_city","merchant_state","mcc"])
+cards_data = pd.read_parquet(parquet_folder + "cleaned_cards_data.parquet")
+users_data = pd.read_parquet(parquet_folder + "cleaned_users_data.parquet")
 with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
     mcc_dict = json.load(f)
 mcc_codes_data = pd.DataFrame(list(mcc_dict.items()), columns=['mcc_code', 'description'])
