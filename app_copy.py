@@ -917,17 +917,17 @@ def render_detailview(category, entity, start_date_first, end_date_first):
 
             ], className="h-100")
         ], width=4),
-       dbc.Col([
-    dbc.Card([
-        dbc.CardBody([
-            html.H6("Monatsausgaben vom Kunde in der Branche", className="card-title"),
-            html.P(
-                calculate_mean_monthly_spending_per_customer(start_date_first, end_date_first, entity),
-                className="card-text"
-            )
-        ])
-    ], className="h-100")
-], width=4),
+        dbc.Col([
+            dbc.Card([
+                dbc.CardBody([
+                    html.H6("Monatsausgaben vom Kunde in der Branche", className="card-title"),
+                    html.P(
+                        calculate_mean_monthly_spending_per_customer(start_date_first, end_date_first, entity),
+                        className="card-text"
+                    )
+                ])
+            ], className="h-100")
+        ], width=4),
 
         dbc.Col([
             dbc.Card([

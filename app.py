@@ -22,7 +22,7 @@ country_config = {
 }
 
 # --- Read in data ---
-data_folder = "../newData/"
+data_folder = "./newData/"
 transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_10k.csv", sep=",",  encoding="utf8")
 cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv", sep=",",  encoding="utf8")
 users_data = pd.read_csv(data_folder + "cleaned_users_data.csv", sep=",",  encoding="utf8")
@@ -409,10 +409,35 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
 
     if category == 'Unternehmen' and entity is not None:
 
+        # Konvertiere timed_transaction_data in ein DataFrame
         df = pd.DataFrame(timed_transaction_data)
 
+        # Filtere die Transaktionen für das ausgewählte Unternehmen
         unternehmen_transaktionen = df[df['merchant_id'] == entity]
 
+        # Umsatz pro Monat berechnen
+        unternehmen_transaktionen['month'] = pd.to_datetime(unternehmen_transaktionen['date']).dt.to_period('M')
+        umsatz_pro_monat = unternehmen_transaktionen.groupby('month')['amount'].sum().reset_index()
+        umsatz_pro_monat['month'] = umsatz_pro_monat['month'].astype(str)  # Monat in String umwandeln für die Darstellung
+
+        # Bar-Chart erstellen
+        fig_bar_chart = px.bar(
+            umsatz_pro_monat,
+            x='month',
+            y='amount',
+            title='Umsatz je Monat',
+            labels={'month': 'Monat', 'amount': 'Umsatz (€)'},
+            text_auto=True
+        )
+
+        # Formatierung des Bar-Charts
+        fig_bar_chart.update_layout(
+            xaxis_title="Monat",
+            yaxis_title="Umsatz (€)",
+            template="plotly_white"
+        )
+
+        # Weitere Berechnungen und KPIs
         Marktkapitalisierung = unternehmen_transaktionen["amount"].sum()
         Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -447,14 +472,23 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
         ]
 
         return [
-            dbc.Col(create_kpi_cards(kpis), width=5, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
+            dbc.Col(
+                create_kpi_cards(kpis)
+             , width=5, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
             dbc.Col([
-                dbc.Col([html.Div("Plots")], width=12, className="detail-view-right-section-1"),
-                dbc.Col([html.Div("Persona")], width=12, className="detail-view-right-section-2"),
+                dbc.Col([
+                    html.Div("Plots"),
+                    dcc.Graph(figure=fig_bar_chart)
+                ], width=12, className="detail-view-right-section-1"),
+                dbc.Col([
+                    html.Div("Persona")
+                ], width=12, className="detail-view-right-section-2"),
             ], width=7, className="detail-view-right-section")
         ]
     
     
+
+
 @app.callback(
     Output("branche_title", "children"),
     Input("category_dropdown", "value"),
