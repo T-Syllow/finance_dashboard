@@ -890,77 +890,77 @@ def render_detailview(category, entity, start_date_first, end_date_first):
                 ####################
 
                 dbc.Col([
-    html.H4("Persona", className="mb-3"),
-    dbc.Row([
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H6("Durchschnittsalter", className="card-title"),
-                            html.P(
-                                f"{get_average_age_in_branche(start_date_first, end_date_first, entity)} Jahre",
-                                className="card-text"
-                    )
-                ])
+        html.H4("Persona", className="mb-3"),
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Durchschnittsalter", className="card-title"),
+                                html.P(
+                                    f"{get_average_age_in_branche(start_date_first, end_date_first, entity)} Jahre",
+                                    className="card-text"
+                        )
+                    ])
 
-            ], className="h-100")
-        ], width=4),
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H6("Durchschnittliches Einkommen (€)", className="card-title"),
-                    html.P(
-                        avg := calculate_avg_income_for_branche(start_date_first, end_date_first, entity),
-                        className="card-text fw-bold"
-                    ),
-                    income_category_bar_component(avg)
-                ])
+                ], className="h-100")
+            ], width=4),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Durchschnittliches Einkommen (€)", className="card-title"),
+                        html.P(
+                            avg := calculate_avg_income_for_branche(start_date_first, end_date_first, entity),
+                            className="card-text fw-bold"
+                        ),
+                        income_category_bar_component(avg)
+                    ])
 
-            ], className="h-100")
-        ], width=4),
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H6("Monatsausgaben vom Kunde in der Branche", className="card-title"),
-                    html.P(
-                        calculate_mean_monthly_spending_per_customer(start_date_first, end_date_first, entity),
-                        className="card-text"
-                    )
-                ])
-            ], className="h-100")
-        ], width=4),
+                ], className="h-100")
+            ], width=4),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Monatsausgaben vom Kunde in der Branche", className="card-title"),
+                        html.P(
+                            calculate_mean_monthly_spending_per_customer(start_date_first, end_date_first, entity),
+                            className="card-text"
+                        )
+                    ])
+                ], className="h-100")
+            ], width=4),
 
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H6("Kartennutzung nach Typ & Marke", className="card-title"),
-            dcc.Graph(figure=plot_card_type_distribution_by_brand(start_date_first, end_date_first, entity))
-                ])
-            ], className="h-100")
-        ], width=4),
-        dbc.Col([
-             dbc.Card([
-                dbc.CardBody([
-                    html.H4("Geschlechterverteilung", className="mb-3"),
-                    html.P(
-                        f"Dominierendes Geschlecht: {get_dominant_gender_in_branche(start_date_first, end_date_first, entity)}",
-                        className="fs-5 fw-bold"
-                    ),
-    
-                ])
-            ], className="h-100")
-        ], width=4),
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H6("Durchschnittlicher Credit Score", className="card-title"),
-                    html.P(
-                        f"{get_average_credit_score_in_branche(start_date_first, end_date_first, entity)}",
-                        className="card-text")
-                ])
-            ], className="h-100")
-        ], width=4),
-    ], className="g-2")
-], width=12, className="detail-view-right-section-2"),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Kartennutzung nach Typ & Marke", className="card-title"),
+                dcc.Graph(figure=plot_card_type_distribution_by_brand(start_date_first, end_date_first, entity))
+                    ])
+                ], className="h-100")
+            ], width=4),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H4("Geschlechterverteilung", className="mb-3"),
+                        html.P(
+                            f"Dominierendes Geschlecht: {get_dominant_gender_in_branche(start_date_first, end_date_first, entity)}",
+                            className="fs-5 fw-bold"
+                        ),
+        
+                    ])
+                ], className="h-100")
+            ], width=4),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Durchschnittlicher Credit Score", className="card-title"),
+                        html.P(
+                            f"{get_average_credit_score_in_branche(start_date_first, end_date_first, entity)}",
+                            className="card-text")
+                    ])
+                ], className="h-100")
+            ], width=4),
+        ], className="g-2")
+    ], width=12, className="detail-view-right-section-2"),
 
 
 
