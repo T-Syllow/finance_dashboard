@@ -113,7 +113,7 @@ app.layout = dbc.Container([
             dbc.Col([
                 dash_table.DataTable(data=[], page_size=10, style_table={'overflowX': 'auto'}, id='tbl_detailansicht'),
             ], width=12, className="d-flex p-3", id="detail-view2")
-        ], className="h-100")
+        ], className="h-100 overflow-scroll")
     ], width=12, className="h-100 position-absolute left-0", id="popup2")
 ], fluid=True, className="body position-relative")
 
@@ -703,12 +703,12 @@ def render_detailview2(category, timed_branchen_data, timed_unternehmen_data):
                 html.Td(row[col]) for col, _ in columns
             ]) for _, row in kpi_df.iterrows()
         ])
-    ], className="table table-striped table-hover table-bordered")
+    ], className="table table-striped table-hover table-bordered w-100")
 
     return html.Div([
         html.Div("Unternehmens-KPIs je Händler", className="fw-bold mb-2"),
         table
-    ])
+    ], className="w-100 overflow-scroll")
 
 
 @app.callback(
