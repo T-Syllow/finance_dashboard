@@ -476,7 +476,76 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
         unternehmen_transaktionen['month'] = pd.to_datetime(unternehmen_transaktionen['date']).dt.to_period('M')
         umsatz_pro_monat = unternehmen_transaktionen.groupby('month')['amount'].sum().reset_index()
         umsatz_pro_monat['month'] = umsatz_pro_monat['month'].astype(str)  # Monat in String umwandeln für die Darstellung
+        
+       
+        
+        
+        #Berechnungen Kreisdiagramme (beispiel1)
+        #branchen_transaktionen = transaction_data[transaction_data['mcc'] == unternehmen_transaktionen]  
+        #Marktkapitalisierung = unternehmen_transaktionen["amount"].sum()
+        #Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        #gesamtMarktkapitalisierung = branchen_transaktionen["amount"].sum()
+        #gesamtMarktkapitalisierung = f"{gesamtMarktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        
 
+        # Branchen-Marktkapitalisierung (beispiel2)
+        
+        #branchen_transaktionen = transaction_data[transaction_data["mcc"] == unternehmen_mcc]
+        #Marktkapitalisierung = unternehmen_mcc["amount"].sum()
+        #Marktkapitalisierung_Branche = branchen_transaktionen["amount"].sum()
+        #gesamtMarktkapitalisierung = branchen_transaktionen["amount"].sum()
+        #DurchschnittBranche = branchen_transaktionen.groupby("client_id")["amount"].sum().mean()
+        
+        
+      
+        unternehmen_transaktionen = df[df['merchant_id'] == entity]     # Transaktionen des Unternehmens filtern (von oben)
+        unternehmen_mcc = unternehmen_transaktionen['mcc'].iloc[0]      # MCC des Unternehmens holen, iloc[0] nimmt 1 Zeile aus Transaktionen – weil alle Zeilen dieses Unternehmens selben MCC haben sollten.
+        
+       
+        branchen_transaktionen = transaction_data[transaction_data['mcc'] == unternehmen_mcc]    # Alle Transaktionen dieser Branche holen
+        
+        
+        MarktkapitalisierungUnternehmen = unternehmen_transaktionen["amount"].sum()
+        GesamtMarktkapitalisierungBranche = branchen_transaktionen["amount"].sum()
+        
+        
+        
+        
+        
+        unternehmen_preisbereich = df['amount'] = df['amount'].replace('[\$,]', '', regex=True).astype(float) 
+        unternehmen_transaktionen = df[df['merchant_id'] == entity] 
+        unternehmen_mcc = unternehmen_transaktionen['mcc'].iloc[0]  
+        
+        #Bereiche definieren (<50, 50-200, >20)
+        Bereiche = [-float('inf'), 50, 200, float('inf')] 
+        labels = ['Klein (<=50)', 'Mittel (50-200)', 'Groß (>200)']
+
+
+        #Transaktionshöhe anzahl pro Bereich 
+        ErsterPreisbereich = unternehmen_transaktionen[unternehmen_transaktionen['amount']<50]['amount'].count()
+        #ZweiterPreisbereich = unternehmen_transaktionen[unternehmen_transaktionen['amount']>=50 & unternehmen_transaktionen['amount']<=200].count()
+        ZweiterPreisbereich = unternehmen_transaktionen[(unternehmen_transaktionen['amount'] >= 50) & (unternehmen_transaktionen['amount'] <= 200)]['amount'].count()
+        DritterPreisbereich = unternehmen_transaktionen[unternehmen_transaktionen['amount']>200]['amount'].count()
+    
+
+      
+        # Kreisdiagramme 
+        fig_pie = px.pie(
+        names=["Marktkapitalisierung", "Gesamtkapitalisierung je Branche"],
+        values=[MarktkapitalisierungUnternehmen, GesamtMarktkapitalisierungBranche],
+        title="Marktkapitalverteilung"
+        )
+        
+        
+        #2. Kreisdiagramm 
+        fig_pie_2 = px.pie(
+        names=["Preisbereich1", "Preisbereich2", "Preisbereich3"],
+        values=[ErsterPreisbereich, ZweiterPreisbereich, DritterPreisbereich],
+        title='Anteil der Transaktionshöhe nach Bereichen',
+        labels = ['Klein (<=50)', 'Mittel (50-200)', 'Groß (>200)']
+        )
+        
+        
         # Bar-Chart erstellen
         fig_bar_chart = px.bar(
             umsatz_pro_monat,
@@ -486,6 +555,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
             labels={'month': 'Monat', 'amount': 'Umsatz (€)'},
             text_auto=True
         )
+        
 
         # Formatierung des Bar-Charts
         fig_bar_chart.update_layout(
@@ -494,7 +564,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
             template="plotly_white"
         )
 
-        # Weitere Berechnungen und KPIs
+
         Marktkapitalisierung = unternehmen_transaktionen["amount"].sum()
         Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -519,7 +589,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
 
 
         kpis = [
-            {'Markt- kapitalisierung': Marktkapitalisierung},
+            {'Marktkapitalisierung': Marktkapitalisierung},
             {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöhe},
             {'durchschn. Transaktionen pro Käufer': DurchschnittTransaktionenProKäufer},
             {'Umsatzwachstum (%)': 87.42},
@@ -531,25 +601,30 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
         return [
             dbc.Col([
                 dbc.Col(
-                    create_kpi_cards(kpis)
-                ,width=12, className="detail-view-kpis d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
-                dbc.Col([
-                    html.Div("Kreisdiagramme"),
-                    dbc.Col([
-
-                    ], width=12, id="gesamtkapitalisierung_container")
-                ], width=12)
-            ], width=5, className="detail-view-left-section" ),
-            dbc.Col([
-                dbc.Col([
-                    html.Div("Plots"),
-                    dcc.Graph(figure=fig_bar_chart)
-                ], width=12, className="detail-view-right-section-1"),
-                dbc.Col([
-                    html.Div("Persona")
-                ], width=12, className="detail-view-right-section-2"),
-            ], width=7, className="detail-view-right-section")
+                    create_kpi_cards(kpis),
+                    width=12, className="detail-view-kpis d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"
+                ),
+                html.Div("Kreisdiagramm", className="fw-bold"),  # fetter Text
+                dbc.Col([ 
+                    dcc.Graph(figure=fig_pie),
+                    dcc.Graph(figure=fig_pie_2),
+                ], width=6)
+            ])
         ]
+
+        # dbc.Col([
+        #         dbc.Col([
+        #             html.Div("Plots"),
+        #             dcc.Graph(figure=fig_bar_chart)
+        #         ], width=12, className="detail-view-right-section"),
+                
+                
+                
+        #         dbc.Col([
+        #             html.Div("Persona")
+        #         ], width=12, className="detail-view-right-section-2"),
+        #     ], width=7, className="detail-view-right-section")
+        # ]
     
     
 
