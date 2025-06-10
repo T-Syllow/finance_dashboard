@@ -23,7 +23,7 @@ country_config = {
 
 # --- Read in data ---
 data_folder = "newData/"
-transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_10k.csv", sep=",",  encoding="utf8")
+transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_50k.csv", sep=",",  encoding="utf8")
 cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv", sep=",",  encoding="utf8")
 users_data = pd.read_csv(data_folder + "cleaned_users_data.csv", sep=",",  encoding="utf8")
 with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
@@ -50,32 +50,29 @@ timed_unternehmen_data = transaction_data
 
 
 #######################
-def calculate_avg_income_for_branche(start_date, end_date, mcc_code):
-    # Datum umwandeln
-    transaction_data['date'] = pd.to_datetime(transaction_data['date'])
+def calculate_avg_income_for_branche(mcc_code):
+   
+
     users_data['id'] = users_data['id'].astype(str)
 
     # Nach Datum und Branche filtern
-    filtered_tx = transaction_data[
-        (transaction_data['date'] >= pd.to_datetime(start_date)) &
-        (transaction_data['date'] <= pd.to_datetime(end_date)) &
+    filtered_tx = timed_transaction_data[
         (transaction_data['mcc'] == int(mcc_code))
     ]
 
-    # Kund*innen-IDs holen
+    # Kunden-IDs
     unique_clients = filtered_tx['client_id'].dropna().astype(str).unique()
 
-    # Passende Nutzer*innen finden
     matching_users = users_data[users_data['id'].astype(str).isin(unique_clients)]
 
     # Durchschnitt berechnen
     avg_income = matching_users['per_capita_income'].mean()
 
-    # Wenn kein Wert, dann "Keine Daten"
+    # Errorhandling
     if pd.isna(avg_income):
         return "Keine Daten"
 
-    # Auf 2 Stellen kürzen
+    # kürzen
     t_income = int(avg_income * 100) / 100
 
     # Ergebnis mit $ zurückgeben
@@ -138,15 +135,12 @@ def income_category_bar_component(avg_income_str):
 
 #############
 
-def calculate_mean_monthly_spending_per_customer(start_date, end_date, mcc_code):
+def calculate_mean_monthly_spending_per_customer(mcc_code):
     # Daten kopieren und Datum umwandeln
-    df = transaction_data.copy()
-    df['date'] = pd.to_datetime(df['date'])
-
+    df = timed_transaction_data.copy()
+    
     # Nach Datum und Branche filtern
     df = df[
-        (df['date'] >= pd.to_datetime(start_date)) &
-        (df['date'] <= pd.to_datetime(end_date)) &
         (df['mcc'] == int(mcc_code)) &
         (df['client_id'].notna())
     ]
@@ -175,26 +169,24 @@ def calculate_mean_monthly_spending_per_customer(start_date, end_date, mcc_code)
     mean_value = monthly_avg.mean()
 
     # Auf 2 Nachkommastellen abschneiden
-    truncated = int(mean_value * 100) / 100
+    rounded = int(mean_value * 100) / 100
 
-    return f"{truncated:.2f} $"
-
-
+    return f"{rounded:.2f} $"
 
 
 
 
 
-def get_dominant_gender_in_branche(start_date, end_date, mcc_code, show_full_distribution=False):
+
+
+def get_dominant_gender_in_branche(mcc_code, show_full_distribution=False):
     # Daten kopieren
-    df = transaction_data.copy()
-    df['date'] = pd.to_datetime(df['date'])
+    df = timed_transaction_data.copy()
+   
     users_data['id'] = users_data['id'].astype(str)
 
     # Transaktionen nach Datum und Branche filtern
     df = df[
-        (df['date'] >= pd.to_datetime(start_date)) &
-        (df['date'] <= pd.to_datetime(end_date)) &
         (df['mcc'] == int(mcc_code)) &
         (df['client_id'].notna())
     ]
@@ -218,51 +210,39 @@ def get_dominant_gender_in_branche(start_date, end_date, mcc_code, show_full_dis
     gender_counts = matched_users['gender'].value_counts()
     male = gender_counts.get('male', 0)
     female = gender_counts.get('female', 0)
-    diverse = gender_counts.get('diverse', 0)
-    total = male + female + diverse
+    total = male + female 
 
     # Wenn keine Angaben, Hinweis zurückgeben
     if total == 0:
-        return "Keine Geschlechtsangaben"
-
-    # Prozent berechnen 
-    def truncate(val):
-        return int(val * 10000) / 100
+        fig = px.pie(
+            names=["Keine Geschlechtsangaben"],
+            values=[1]
+        )
+        fig.update_traces(textinfo="label")
+        return fig
 
     percents = {
-        "Männlich": truncate(male / total),
-        "Weiblich": truncate(female / total),
-        "Divers": truncate(diverse / total)
+        "Männlich": male / total * 100,
+        "Weiblich": female / total * 100
     }
-
-    # Nach Prozent sortieren
-    sorted_percents = sorted(percents.items(), key=lambda x: x[1], reverse=True)
-    top1, top2 = sorted_percents[0], sorted_percents[1]
-
-    # Entscheiden, ob ein Geschlecht dominiert
-    dominant_text = "Ausgeglichen" if abs(top1[1] - top2[1]) < 1.0 else f"{top1[0]} ({top1[1]:.2f}%)"
-
-   
-    if show_full_distribution:
-        return {
-            "Dominant": dominant_text,
-            "Verteilung": percents
-        }
-    else:
-        return dominant_text
+    fig = px.pie(
+        names=list(percents.keys()),
+        values=list(percents.values()),
+        title="Geschlechterverteilung",
+        color_discrete_sequence=px.colors.qualitative.Pastel
+    )
+    fig.update_traces(textposition='inside', textinfo='percent+label')
+    return fig
 
 
 
-def get_average_age_in_branche(start_date, end_date, mcc_code):
+def get_average_age_in_branche(end_date, mcc_code):
     # Daten vorbereiten
-    df = transaction_data.copy()
-    df['date'] = pd.to_datetime(df['date'])
+    df = timed_transaction_data.copy()
     users_data['id'] = users_data['id'].astype(str)
 
-    # Nach Datum und Branche filtern
+    # Nach Branche filtern
     df = df[
-        (df['date'] >= pd.to_datetime(start_date)) &
-        (df['date'] <= pd.to_datetime(end_date)) &
         (df['mcc'] == int(mcc_code)) &
         (df['client_id'].notna())
     ]
@@ -270,7 +250,7 @@ def get_average_age_in_branche(start_date, end_date, mcc_code):
     if df.empty:
         return None
 
-    # Passende Nutzer*innen holen
+    # Passende Nutzer holen
     unique_clients = df['client_id'].astype(str).unique()
     matched_users = users_data[users_data['id'].isin(unique_clients)].copy()
 
@@ -305,16 +285,14 @@ def get_average_age_in_branche(start_date, end_date, mcc_code):
 
 
 
-def get_average_credit_score_in_branche(start_date, end_date, mcc_code):
+def get_average_credit_score_in_branche(mcc_code):
     # Daten kopieren
-    df = transaction_data.copy()
-    df['date'] = pd.to_datetime(df['date'])
+    df = timed_transaction_data.copy()
+
     users_data['id'] = users_data['id'].astype(str)
 
-    # Nach Datum und Branche filtern
+    # Nach Branche filtern
     df = df[
-        (df['date'] >= pd.to_datetime(start_date)) &
-        (df['date'] <= pd.to_datetime(end_date)) &
         (df['mcc'] == int(mcc_code)) &
         (df['client_id'].notna())
     ]
@@ -346,16 +324,13 @@ def get_average_credit_score_in_branche(start_date, end_date, mcc_code):
 
 
 
-def plot_card_type_distribution_by_brand(start_date, end_date, mcc_code, show_percentage=False):
+def plot_card_type_distribution_by_brand(mcc_code, show_percentage=False):
     # Kopiere die Transaktions- und Kartendaten
-    df_tx = transaction_data.copy()
-    df_tx['date'] = pd.to_datetime(df_tx['date'])
+    df_tx = timed_transaction_data.copy()
     df_cards = cards_data.copy()
 
     # Filtere nach Datum, Branche (MCC) und gültigen IDs
     df_tx = df_tx[
-        (df_tx['date'] >= pd.to_datetime(start_date)) &
-        (df_tx['date'] <= pd.to_datetime(end_date)) &
         (df_tx['mcc'] == int(mcc_code)) &
         (df_tx['client_id'].notna()) &
         (df_tx['card_id'].notna())
@@ -386,7 +361,7 @@ def plot_card_type_distribution_by_brand(start_date, end_date, mcc_code, show_pe
     # Zähle Transaktionen pro Kartentyp und Marke
     grouped = merged.groupby(['card_brand', 'card_type']).size().reset_index(name='count')
 
-    # Wenn Prozentdarstellung gewünscht ist
+   
     if show_percentage:
         # Berechne Prozent pro Marke
         total_per_brand = grouped.groupby('card_brand')['count'].transform('sum')
@@ -822,14 +797,12 @@ def toggle_class(n1, n2, current_class):
     Output("detail-view", "children"),
     Input("category_dropdown", "value"),
     Input("entity_dropdown", "value"),
-    Input("date-range-start", "start_date"),
     Input("date-range-start", "end_date"),
 )
-def render_detailview(category, entity, start_date_first, end_date_first):
+def render_detailview(category, entity, end_date_first):
     if category == 'Branchen':
-        transaction_data['date'] = pd.to_datetime(transaction_data['date'])
-        time_transaction_data = transaction_data[(transaction_data['date'] >= pd.to_datetime(start_date_first)) & (transaction_data['date'] <= pd.to_datetime(end_date_first))]
-        branchen_transaktionen = time_transaction_data[time_transaction_data['mcc'] == int(entity)]
+        
+        branchen_transaktionen = timed_transaction_data[timed_transaction_data['mcc'] == int(entity)]
         branchen_transaktionen["year"] = pd.to_datetime(branchen_transaktionen["date"]).dt.year 
         umsatz_Jahr_Merchant = branchen_transaktionen.groupby(["year","merchant_id"])["amount"].sum().reset_index(name="Umsatz_im_Jahr")
         
@@ -897,7 +870,7 @@ def render_detailview(category, entity, start_date_first, end_date_first):
                     dbc.CardBody([
                         html.H6("Durchschnittsalter", className="card-title"),
                                 html.P(
-                                    f"{get_average_age_in_branche(start_date_first, end_date_first, entity)} Jahre",
+                                    f"{get_average_age_in_branche(end_date_first, entity)} Jahre",
                                     className="card-text"
                         )
                     ])
@@ -909,7 +882,7 @@ def render_detailview(category, entity, start_date_first, end_date_first):
                     dbc.CardBody([
                         html.H6("Durchschnittliches Einkommen (€)", className="card-title"),
                         html.P(
-                            avg := calculate_avg_income_for_branche(start_date_first, end_date_first, entity),
+                            avg := calculate_avg_income_for_branche(entity),
                             className="card-text fw-bold"
                         ),
                         income_category_bar_component(avg)
@@ -922,7 +895,7 @@ def render_detailview(category, entity, start_date_first, end_date_first):
                     dbc.CardBody([
                         html.H6("Monatsausgaben vom Kunde in der Branche", className="card-title"),
                         html.P(
-                            calculate_mean_monthly_spending_per_customer(start_date_first, end_date_first, entity),
+                            calculate_mean_monthly_spending_per_customer(entity),
                             className="card-text"
                         )
                     ])
@@ -933,7 +906,7 @@ def render_detailview(category, entity, start_date_first, end_date_first):
                 dbc.Card([
                     dbc.CardBody([
                         html.H6("Kartennutzung nach Typ & Marke", className="card-title"),
-                dcc.Graph(figure=plot_card_type_distribution_by_brand(start_date_first, end_date_first, entity))
+                        dcc.Graph(figure=plot_card_type_distribution_by_brand(entity))
                     ])
                 ], className="h-100")
             ], width=4),
@@ -941,20 +914,16 @@ def render_detailview(category, entity, start_date_first, end_date_first):
                 dbc.Card([
                     dbc.CardBody([
                         html.H4("Geschlechterverteilung", className="mb-3"),
-                        html.P(
-                            f"Dominierendes Geschlecht: {get_dominant_gender_in_branche(start_date_first, end_date_first, entity)}",
-                            className="fs-5 fw-bold"
-                        ),
-        
+                        dcc.Graph(figure=get_dominant_gender_in_branche(entity), config={"displayModeBar": False}),
                     ])
-                ], className="h-100")
+], className="h-100")
             ], width=4),
             dbc.Col([
                 dbc.Card([
                     dbc.CardBody([
                         html.H6("Durchschnittlicher Credit Score", className="card-title"),
                         html.P(
-                            f"{get_average_credit_score_in_branche(start_date_first, end_date_first, entity)}",
+                            f"{get_average_credit_score_in_branche(entity)}",
                             className="card-text")
                     ])
                 ], className="h-100")

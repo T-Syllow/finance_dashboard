@@ -2,8 +2,8 @@ import pandas as pd
 import re
 
 # --- Read in Data --- Hier nur CSV Datei ändern
-input_path = "./transactions_data_mio.csv"
-output_path = "./cleaned_transaction_data_mio.csv"
+input_path = "./newData/users_data.csv"
+output_path = "./newData/cleaned_users_data.csv"
 
 transaction_data = pd.read_csv(input_path, sep=",", encoding="utf8")
 

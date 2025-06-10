@@ -25,7 +25,7 @@ country_config = {
 
 # --- Read in data ---
 data_folder = "./newData/"
-transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_10k.csv", sep=",",  encoding="utf8")
+transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_50k.csv", sep=",",  encoding="utf8")
 cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv", sep=",",  encoding="utf8")
 users_data = pd.read_csv(data_folder + "cleaned_users_data.csv", sep=",",  encoding="utf8")
 with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
@@ -322,6 +322,71 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
     df = pd.DataFrame(timed_transaction_data)
     df['date'] = pd.to_datetime(df['date'])
 
+    persona_cards = dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Durchschnittsalter", className="card-title"),
+                        html.P(
+                            f"{get_average_age_in_branche(end_date_first, entity, df)} Jahre",
+                            className="card-text"
+                        )
+                    ])
+                ], className="h-100")
+            ], width=4),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Durchschnittliches Einkommen (€)", className="card-title"),
+                        html.P(
+                            avg_income := calculate_avg_income_for_branche(entity, df),
+                            className="card-text fw-bold"
+                        ),
+                        income_category_bar_component(avg_income)
+                    ])
+                ], className="h-100")
+            ], width=4),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Monatsausgaben pro Kunde in der Branche", className="card-title"),
+                        html.P(
+                            calculate_mean_monthly_spending_per_customer(entity, df),
+                            className="card-text"
+                        )
+                    ])
+                ], className="h-100")
+            ], width=4),
+
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Kartennutzung nach Typ & Marke", className="card-title"),
+                        dcc.Graph(figure=plot_card_type_distribution_by_brand(entity, df))
+                    ])
+                ], className="h-100")
+            ], width=4),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Geschlechterverteilung", className="mb-3"),
+                        dcc.Graph(figure=get_dominant_gender_in_branche(entity, df), config={"displayModeBar": False}),
+                    ])
+                ], className="h-100")
+            ], width=4),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Durchschnittlicher Credit Score", className="card-title"),
+                        html.P(
+                            f"{get_average_credit_score_in_branche(entity, df)}",
+                            className="card-text")
+                    ])
+                ], className="h-100")
+            ], width=4),
+        ], className="g-2")
+    
+
     if category == 'Branchen' and entity is not None:
         umsatz_Jahr_Merchant, umsatz_pro_merchant, branchen_transaktionen = process_branchen_data(df, entity, start_date_first, end_date_first)
         top_5 = umsatz_pro_merchant.nlargest(5, 'gesamtumsatz')
@@ -462,6 +527,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
                 ], width=12, className="detail-view-right-section-1"),
                 dbc.Col([
                     html.Div("Persona"),
+                    persona_cards,
                 ], width=12, className="detail-view-right-section-2"),
             ], width=7, className="detail-view-right-section")
         ]
@@ -597,6 +663,359 @@ def update_detailView(category, entity):
         else:
             return f"{entity} – Beschreibung nicht gefunden"
     return ""
+
+#######################
+
+def calculate_avg_income_for_branche(mcc_code, timed_transaction_data):
+   
+
+    users_data['id'] = users_data['id'].astype(str)
+
+    # Nach Datum und Branche filtern
+    filtered_tx = timed_transaction_data[
+        (transaction_data['mcc'] == int(mcc_code))
+    ]
+
+    # Kunden-IDs
+    unique_clients = filtered_tx['client_id'].dropna().astype(str).unique()
+
+    matching_users = users_data[users_data['id'].astype(str).isin(unique_clients)]
+
+    # Durchschnitt berechnen
+    avg_income = matching_users['per_capita_income'].mean()
+
+    # Errorhandling
+    if pd.isna(avg_income):
+        return "Keine Daten"
+
+    # kürzen
+    t_income = int(avg_income * 100) / 100
+
+    # Ergebnis mit $ zurückgeben
+    return f"{t_income:.2f} $"
+
+
+def income_category_bar_component(avg_income_str):
+    # Wenn keine Daten vorhanden sind
+    if avg_income_str == "Keine Daten":
+        return html.P("Keine Daten verfügbar.")
+
+    # Zahl aus dem String holen (z. B. "12345.67 $")
+    income_value = float(avg_income_str.replace(" $", "").replace(",", ""))
+
+    # Skala von 0 bis 300.000 €
+    scale_min = 0
+    scale_max = 300000
+
+    # Position auf der Skala berechnen (in %)
+    relative_pos = ((income_value - scale_min) / (scale_max - scale_min)) * 100
+    relative_pos = max(0, min(relative_pos, 100))  # Begrenzen zwischen 0 und 100 %
+
+    # Farben und Kategorien definieren
+    color_segments = ["#d73027", "#fc8d59", "#fee08b", "#91bfdb", "#4575b4"]
+    categories = [
+        "Unterschicht: < 30.000 €",
+        "Untere Mittelschicht: 30.000 – 50.000 €",
+        "Mittlere Mittelschicht: 50.000 – 135.000 €",
+        "Obere Mittelschicht: 135.000 – 250.000 €",
+        "Oberschicht: > 250.000 €"
+    ]
+
+    return html.Div([
+        # Farbige Skala und Pfeil anzeigen
+        html.Div([
+            html.Div(
+                [html.Div(style={
+                    "flex": "1",
+                    "height": "10px",
+                    "backgroundColor": color
+                }) for color in color_segments],
+                style={"display": "flex", "width": "100%"}
+            ),
+            html.Div("▲", style={
+                "position": "absolute",
+                "left": f"{relative_pos:.2f}%",
+                "transform": "translateX(-50%)",
+                "top": "-12px",
+                "fontSize": "1.2rem"
+            })
+        ], style={"position": "relative", "height": "25px", "marginTop": "10px"}),
+
+        # Legende mit den Einkommensgruppen
+        html.Ul([
+            html.Li(cat, style={"fontSize": "0.8rem"})
+            for cat in categories
+        ], style={"paddingLeft": "1rem", "marginTop": "10px"})
+    ])
+    
+
+#############
+
+def calculate_mean_monthly_spending_per_customer(mcc_code, timed_transaction_data):
+    # Daten kopieren und Datum umwandeln
+    df = timed_transaction_data.copy()
+    
+    # Nach Datum und Branche filtern
+    df = df[
+        (df['mcc'] == int(mcc_code)) &
+        (df['client_id'].notna())
+    ]
+
+    # Wenn keine Daten, gib Info zurück
+    if df.empty:
+        return "Keine Daten"
+
+    # Neue Spalte: Jahr + Monat
+    df['year_month'] = df['date'].dt.to_period('M')
+
+    # Summe pro Kunde
+    total_by_client = df.groupby('client_id')['amount'].sum()
+
+    # Wie viele Monate aktiv pro Kunde
+    months_by_client = df.groupby('client_id')['year_month'].nunique()
+
+    # Durchschnitt pro Monat
+    monthly_avg = total_by_client / months_by_client
+
+    # Wenn leer, gib Info zurück
+    if monthly_avg.empty:
+        return "Keine Daten"
+
+    # Durchschnitt aller Kunden
+    mean_value = monthly_avg.mean()
+
+    # Auf 2 Nachkommastellen abschneiden
+    rounded = int(mean_value * 100) / 100
+
+    return f"{rounded:.2f} $"
+
+
+
+
+
+
+
+def get_dominant_gender_in_branche(mcc_code, timed_transaction_data, show_full_distribution=False):
+    # Daten kopieren
+    df = timed_transaction_data.copy()
+   
+    users_data['id'] = users_data['id'].astype(str)
+
+    # Transaktionen nach Datum und Branche filtern
+    df = df[
+        (df['mcc'] == int(mcc_code)) &
+        (df['client_id'].notna())
+    ]
+
+    # Wenn keine Transaktionen
+    if df.empty:
+        return "Keine Transaktionen im Zeitraum/MCC"
+
+    # Kunden holen
+    unique_clients = df['client_id'].astype(str).unique()
+    matched_users = users_data[users_data['id'].isin(unique_clients)].copy()
+
+  
+    if matched_users.empty or 'gender' not in matched_users.columns:
+        return "Keine Nutzerinformationen verfügbar"
+
+    
+    matched_users['gender'] = matched_users['gender'].str.lower()
+
+    # Geschlecht zählen
+    gender_counts = matched_users['gender'].value_counts()
+    male = gender_counts.get('male', 0)
+    female = gender_counts.get('female', 0)
+    total = male + female 
+
+    # Wenn keine Angaben, Hinweis zurückgeben
+    if total == 0:
+        fig = px.pie(
+            names=["Keine Geschlechtsangaben"],
+            values=[1]
+        )
+        fig.update_traces(textinfo="label")
+        return fig
+
+    percents = {
+        "Männlich": male / total * 100,
+        "Weiblich": female / total * 100
+    }
+    fig = px.pie(
+        names=list(percents.keys()),
+        values=list(percents.values()),
+        title="Geschlechterverteilung",
+        color_discrete_sequence=px.colors.qualitative.Pastel
+    )
+    fig.update_traces(textposition='inside', textinfo='percent+label')
+    return fig
+
+
+
+def get_average_age_in_branche(end_date, mcc_code, timed_transaction_data):
+    # Daten vorbereiten
+    df = timed_transaction_data.copy()
+    users_data['id'] = users_data['id'].astype(str)
+
+    # Nach Branche filtern
+    df = df[
+        (df['mcc'] == int(mcc_code)) &
+        (df['client_id'].notna())
+    ]
+
+    if df.empty:
+        return None
+
+    # Passende Nutzer holen
+    unique_clients = df['client_id'].astype(str).unique()
+    matched_users = users_data[users_data['id'].isin(unique_clients)].copy()
+
+    if 'birth_year' not in matched_users.columns or 'birth_month' not in matched_users.columns:
+        return None
+
+    # Geburtsdatum berechnen
+    matched_users['birthdate'] = pd.to_datetime(
+        matched_users['birth_year'].astype(str) + "-" +
+        matched_users['birth_month'].astype(str).str.zfill(2) + "-01",
+        errors='coerce'
+    )
+    matched_users = matched_users[matched_users['birthdate'].notna()]
+
+    if matched_users.empty:
+        return None
+
+    # Alter berechnen
+    reference_date = pd.to_datetime(end_date)
+    matched_users['age'] = matched_users['birthdate'].apply(lambda b: (reference_date - b).days // 365)
+
+    if matched_users['age'].empty:
+        return None
+
+    # Durchschnitt zurückgeben
+    mean_age = matched_users['age'].mean()
+    return int(mean_age * 100) / 100
+
+
+#####################
+
+
+
+
+def get_average_credit_score_in_branche(mcc_code, timed_transaction_data):
+    # Daten kopieren
+    df = timed_transaction_data.copy()
+
+    users_data['id'] = users_data['id'].astype(str)
+
+    # Nach Branche filtern
+    df = df[
+        (df['mcc'] == int(mcc_code)) &
+        (df['client_id'].notna())
+    ]
+
+    # Wenn keine Daten, dann nichts zurückgeben
+    if df.empty:
+        return None
+
+    # Kunden-IDs sammeln
+    unique_clients = df['client_id'].astype(str).unique()
+
+    # Passende Nutzer finden
+    matched_users = users_data[users_data['id'].isin(unique_clients)].copy()
+
+    # Wenn keine Nutzer oder kein Score, dann nichts zurückgeben
+    if matched_users.empty or 'credit_score' not in matched_users.columns:
+        return None
+
+    # Durchschnitt berechnen
+    avg_credit = matched_users['credit_score'].mean()
+
+    # Wenn kein Wert da, dann nichts zurückgeben
+    if pd.isna(avg_credit):
+        return None
+
+    # Auf 2 Stellen kürzen
+    return int(avg_credit * 100) / 100
+
+
+
+
+def plot_card_type_distribution_by_brand(mcc_code, timed_transaction_data , show_percentage=False):
+    # Kopiere die Transaktions- und Kartendaten
+    df_tx = timed_transaction_data.copy()
+    df_cards = cards_data.copy()
+
+    # Filtere nach Datum, Branche (MCC) und gültigen IDs
+    df_tx = df_tx[
+        (df_tx['mcc'] == int(mcc_code)) &
+        (df_tx['client_id'].notna()) &
+        (df_tx['card_id'].notna())
+    ]
+
+    # Wenn keine Daten vorhanden sind, gib leere Grafik zurück
+    if df_tx.empty:
+        return go.Figure()
+
+    # Verbinde Transaktionen mit Karteninformationen
+    merged = df_tx.merge(df_cards, left_on='card_id', right_on='id', how='left')
+
+    # Wenn keine relevanten Daten vorhanden sind, gib leere Grafik zurück
+    if merged.empty or 'card_type' not in merged.columns or 'card_brand' not in merged.columns:
+        return go.Figure()
+
+    # Vereinheitliche Kartentyp-Bezeichnungen
+    merged['card_type'] = merged['card_type'].str.lower().map({
+        'debit': 'Debit',
+        'credit': 'Kredit',
+        'prepaid': 'Prepaid',
+        'debit (prepaid)': 'Prepaid'
+    }).fillna('Andere')
+
+    # Vereinheitliche Markennamen
+    merged['card_brand'] = merged['card_brand'].str.title()
+
+    # Zähle Transaktionen pro Kartentyp und Marke
+    grouped = merged.groupby(['card_brand', 'card_type']).size().reset_index(name='count')
+
+   
+    if show_percentage:
+        # Berechne Prozent pro Marke
+        total_per_brand = grouped.groupby('card_brand')['count'].transform('sum')
+        grouped['percent'] = (grouped['count'] / total_per_brand) * 100
+        # Kürze auf 2 Nachkommastellen
+        grouped['percent'] = grouped['percent'].apply(lambda x: int(x * 100) / 100)
+        y_val = 'percent'
+        y_title = 'Anteil in %'
+    else:
+        y_val = 'count'
+        y_title = 'Anzahl Transaktionen'
+
+    # Erstelle Balkendiagramm mit Plotly
+    fig = px.bar(
+        grouped,
+        x=y_val,                 # Wert auf X-Achse (Anzahl oder Prozent)
+        y='card_brand',          # Marken auf Y-Achse
+        color='card_type',       # Farbe nach Kartentyp
+        orientation='h',         # Horizontal
+        text_auto='.2s' if not show_percentage else None,  # Zeige Werte bei Anzahl
+        title='Kartennutzung nach Typ & Marke' + (' (in %)' if show_percentage else ''),
+        labels={'card_type': 'Kartentyp', 'card_brand': 'Kartenmarke', y_val: y_title}
+    )
+
+    # Layout-Einstellungen
+    fig.update_layout(
+        template='plotly_white',
+        legend_title='Kartentyp',
+        xaxis_title='Kartenmarke',
+        yaxis_title=y_title,
+        height=400
+    )
+
+    return fig
+
+
+################
+
 
 if __name__ == '__main__':
     app.run(debug=True)
