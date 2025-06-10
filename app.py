@@ -88,8 +88,7 @@ app.layout = dbc.Container([
         ], className="popup-header"),
         dbc.Row([
             dbc.Col([
-                dbc.Button("KPIs", color="primary", className="col-6 navigation-button active", id="kpi-btn"),
-                dbc.Button("Branchenübersicht", color="primary", className="col-6 navigation-button", id="branchenuebersicht_btn"),
+
             ], width=12),
         ], className="popup-header"),
         dbc.Row([
@@ -107,8 +106,7 @@ app.layout = dbc.Container([
         ], className="popup-header"),
         dbc.Row([
             dbc.Col([
-                dbc.Button("KPIs", color="primary", className="col-6 navigation-button active", id="kpi-btn2"),
-                dbc.Button("Branchenübersicht", color="primary", className="col-6 navigation-button", id="branchenuebersicht_btn2"),
+
             ], width=12),
         ], className="popup-header"),
         dbc.Row([
@@ -394,11 +392,9 @@ def create_branchen_charts(umsatz_Jahr_Merchant, top_5, flop_5):
     Input("entity_dropdown", "value"),
     Input("date-range-start", "start_date"),
     Input("date-range-start", "end_date"),
-    Input('kpi-btn', 'n_clicks'),
-    Input('branchenuebersicht_btn', 'n_clicks'),
     Input('timed_transaction_data', 'data')
 )
-def render_detailview(category, entity, start_date_first, end_date_first, kpi_btn, uebersicht_btn, timed_transaction_data):
+def render_detailview(category, entity, start_date_first, end_date_first, timed_transaction_data):
     if timed_transaction_data is None:
         return dbc.Alert("Keine Transaktionsdaten verfügbar.", color="warning")
 
@@ -663,15 +659,56 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
     
 
 @app.callback(
-    Output("tbl_detailansicht", "data"),
+    Output("detail-view2", "children"),
     Input("category_dropdown", "value"),
     Input('timed_branchen_transaction_data', 'data'),
-    Input('timed_unternehmen_transaction_data', 'data')
+    Input('timed_unternehmen_transaction_data', 'data'),
 )
 def render_detailview2(category, timed_branchen_data, timed_unternehmen_data):
     if category == 'Unternehmen':
-        return timed_unternehmen_data
-    return timed_branchen_data
+        return html.Div("Unternehmensdaten werden hier angezeigt.")
+
+    if timed_branchen_data is None or len(timed_branchen_data) == 0:
+        return html.Div("Keine Daten verfügbar.")
+
+    df = pd.DataFrame(timed_branchen_data)
+    kpi_df = df.groupby("merchant_id").agg(
+        gesamtumsatz=("amount", "sum"),
+        anzahl_transaktionen=("amount", "count"),
+        durchschn_transaktionshoehe=("amount", "mean"),
+        einzigartige_kaeufer=("client_id", "nunique")
+    ).reset_index()
+    kpi_df["durchschn_transaktionen_pro_kaeufer"] = kpi_df["anzahl_transaktionen"] / kpi_df["einzigartige_kaeufer"]
+
+    # Formatierungen
+    kpi_df["gesamtumsatz"] = kpi_df["gesamtumsatz"].map(lambda x: f"{x:,.2f} €".replace(",", "X").replace(".", ",").replace("X", "."))
+    kpi_df["durchschn_transaktionshoehe"] = kpi_df["durchschn_transaktionshoehe"].map(lambda x: f"{x:,.2f} €".replace(",", "X").replace(".", ",").replace("X", "."))
+    kpi_df["durchschn_transaktionen_pro_kaeufer"] = kpi_df["durchschn_transaktionen_pro_kaeufer"].map(lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+    columns = [
+        ("merchant_id", "Händler-ID"),
+        ("gesamtumsatz", "Gesamtumsatz"),
+        ("anzahl_transaktionen", "Anzahl Transaktionen"),
+        ("durchschn_transaktionshoehe", "Ø Transaktionshöhe"),
+        ("einzigartige_kaeufer", "Einzigartige Käufer"),
+        ("durchschn_transaktionen_pro_kaeufer", "Ø Transaktionen/Käufer"),
+    ]
+
+    table = html.Table([
+        html.Thead([
+            html.Tr([html.Th(name) for _, name in columns])
+        ]),
+        html.Tbody([
+            html.Tr([
+                html.Td(row[col]) for col, _ in columns
+            ]) for _, row in kpi_df.iterrows()
+        ])
+    ], className="table table-striped table-hover table-bordered")
+
+    return html.Div([
+        html.Div("Unternehmens-KPIs je Händler", className="fw-bold mb-2"),
+        table
+    ])
 
 
 @app.callback(
