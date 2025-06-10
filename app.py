@@ -41,6 +41,8 @@ app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 app.layout = dbc.Container([ 
     dcc.Store(id='timed_transaction_data'),
+    dcc.Store(id='timed_branchen_transaction_data'),
+    dcc.Store(id='timed_unternehmen_transaction_data'),
     dbc.Row([
         dbc.Col([
             dbc.Col([
@@ -63,7 +65,8 @@ app.layout = dbc.Container([
             ], width=12, className="d-flex py-2 gap-2 justify-content-start"),
         ], width=6, className="py-3 filterbar"),
         dbc.Col([
-            dbc.Button('Detailansicht anzeigen', className='btn primary', id="toggle-button" , n_clicks=0)
+            dbc.Button('KPIs anzeigen', className='btn primary', id="toggle-button" , n_clicks=0),
+            dbc.Button('Detailansicht anzeigen', className='btn primary', id="toggle-button2" , n_clicks=0)
         ])
     ], className="navbar"),
     dbc.Row([
@@ -94,7 +97,26 @@ app.layout = dbc.Container([
 
             ], width=12, className="d-flex p-3", id="detail-view")
         ], className="h-100")
-    ], width=12, className="h-100 position-absolute left-0", id="popup")
+    ], width=12, className="h-100 position-absolute left-0", id="popup"),
+    dbc.Col([
+        dbc.Row([
+            dbc.Col([
+                html.H2("", id="branche_title2"),
+                html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close2")
+            ], width=12, className="px-5 py-4 d-flex justify-content-between"),
+        ], className="popup-header"),
+        dbc.Row([
+            dbc.Col([
+                dbc.Button("KPIs", color="primary", className="col-6 navigation-button active", id="kpi-btn2"),
+                dbc.Button("Branchenübersicht", color="primary", className="col-6 navigation-button", id="branchenuebersicht_btn2"),
+            ], width=12),
+        ], className="popup-header"),
+        dbc.Row([
+            dbc.Col([
+                dash_table.DataTable(data=[], page_size=10, style_table={'overflowX': 'auto'}, id='tbl_detailansicht'),
+            ], width=12, className="d-flex p-3", id="detail-view2")
+        ], className="h-100")
+    ], width=12, className="h-100 position-absolute left-0", id="popup2")
 ], fluid=True, className="body position-relative")
 
 @app.callback(
@@ -107,6 +129,54 @@ def update_timed_transaction_data(start_date, end_date):
     df['date'] = pd.to_datetime(df['date'])
     filtered = df[(df['date'] >= pd.to_datetime(start_date)) & (df['date'] <= pd.to_datetime(end_date))]
     return filtered.to_dict('records')
+
+@app.callback(
+    Output('timed_branchen_transaction_data', 'data'),
+    Input('date-range-start', 'start_date'),
+    Input('date-range-start', 'end_date'),
+    Input('category_dropdown', 'value'),  # Die ausgewählte Branche (MCC)
+    Input('entity_dropdown', 'value')  # Die ausgewählte Branche (MCC)
+)
+def update_timed_branchen_transaction_data(start_date, end_date, category, entity):
+    if category == 'Branchen':
+        if entity is None:
+            return []  # Keine Daten, wenn keine Branche ausgewählt ist
+
+        df = transaction_data.copy()
+        df['date'] = pd.to_datetime(df['date'])
+
+        # Filtere die Daten basierend auf dem Zeitraum und der Branche (MCC)
+        filtered = df[
+            (df['date'] >= pd.to_datetime(start_date)) &
+            (df['date'] <= pd.to_datetime(end_date)) &
+            (df['mcc'] == int(entity))
+        ]
+
+        return filtered.to_dict('records')
+    
+@app.callback(
+    Output('timed_unternehmen_transaction_data', 'data'),
+    Input('date-range-start', 'start_date'),
+    Input('date-range-start', 'end_date'),
+    Input('category_dropdown', 'value'),  # Die ausgewählte Branche (MCC)
+    Input('entity_dropdown', 'value')  # Die ausgewählte Branche (MCC)
+)
+def update_timed_unternehmen_transaction_data(start_date, end_date, category, entity):
+    if category == 'Unternehmen':
+        if entity is None:
+            return []  # Keine Daten, wenn keine Branche ausgewählt ist
+
+        df = transaction_data.copy()
+        df['date'] = pd.to_datetime(df['date'])
+
+        # Filtere die Daten basierend auf dem Zeitraum und der Branche (MCC)
+        filtered = df[
+            (df['date'] >= pd.to_datetime(start_date)) &
+            (df['date'] <= pd.to_datetime(end_date)) &
+            (df['merchant_id'] == int(entity))
+        ]
+
+        return filtered.to_dict('records')
 
 @callback(
     Output('map-container', 'children'),
@@ -272,6 +342,18 @@ def update_right_section(category, entity_value, timed_transaction_data):
     State("popup", "className")
 )
 def toggle_class(n1, n2, current_class):
+    if "top-100-percent" in current_class:
+        return "h-100 position-absolute left-0 col-12 top-0-pixel"
+    else:
+        return "h-100 position-absolute left-0 col-12 top-100-percent"
+    
+@app.callback(
+    Output("popup2", "className"),
+    Input("toggle-button2", "n_clicks"),
+    Input("toggle-button-close2", "n_clicks"),
+    State("popup2", "className")
+)
+def toggle_class2(n1, n2, current_class):
     if "top-100-percent" in current_class:
         return "h-100 position-absolute left-0 col-12 top-0-pixel"
     else:
@@ -579,7 +661,17 @@ def render_detailview(category, entity, start_date_first, end_date_first, kpi_bt
             ], width=7, className="detail-view-right-section")
         ]
     
-    
+
+@app.callback(
+    Output("tbl_detailansicht", "data"),
+    Input("category_dropdown", "value"),
+    Input('timed_branchen_transaction_data', 'data'),
+    Input('timed_unternehmen_transaction_data', 'data')
+)
+def render_detailview2(category, timed_branchen_data, timed_unternehmen_data):
+    if category == 'Unternehmen':
+        return timed_unternehmen_data
+    return timed_branchen_data
 
 
 @app.callback(

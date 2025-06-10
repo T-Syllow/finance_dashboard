@@ -44,6 +44,11 @@
     transition: 525ms ease-in-out;
 }
 
+#popup2 {
+    background-color: white;
+    transition: 525ms ease-in-out;
+}
+
 .popup-header {
     border-bottom: solid rgba(0, 0, 0, 0.2);
 }
