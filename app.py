@@ -66,7 +66,8 @@ app.layout = dbc.Container([
         ], width=6, className="py-3 filterbar"),
         dbc.Col([
             dbc.Button('KPIs anzeigen', className='btn primary', id="toggle-button" , n_clicks=0),
-            dbc.Button('Detailansicht anzeigen', className='btn primary', id="toggle-button2" , n_clicks=0)
+            dbc.Button('Branche anzeigen', className='btn primary', id="toggle-button2" , n_clicks=0),
+            dbc.Button('Unternehmen anzeigen', className='btn primary', id="toggle-button4" , n_clicks=0)
         ])
     ], className="navbar"),
     dbc.Row([
@@ -114,7 +115,25 @@ app.layout = dbc.Container([
                 dash_table.DataTable(data=[], page_size=10, style_table={'overflowX': 'auto'}, id='tbl_detailansicht'),
             ], width=12, className="d-flex p-3", id="detail-view2")
         ], className="h-100 overflow-scroll")
-    ], width=12, className="h-100 position-absolute left-0", id="popup2")
+    ], width=12, className="h-100 position-absolute left-0", id="popup2"),
+     dbc.Col([
+        dbc.Row([
+            dbc.Col([
+                html.H2("", id="branche_title4"),
+                html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close4")
+            ], width=12, className="px-5 py-4 d-flex justify-content-between"),
+        ], className="popup-header"),
+        dbc.Row([
+            dbc.Col([
+
+            ], width=12),
+        ], className="popup-header"),
+        dbc.Row([
+            dbc.Col([
+                dash_table.DataTable(data=[], page_size=10, style_table={'overflowX': 'auto'}, id='tbl_detailansicht_Unternehmen'),
+            ], width=12, className="d-flex p-3", id="detail-view4")
+        ], className="h-100 overflow-scroll")
+    ], width=12, className="h-100 position-absolute left-0", id="popup4")
 ], fluid=True, className="body position-relative")
 
 @app.callback(
@@ -334,6 +353,18 @@ def update_right_section(category, entity_value, timed_transaction_data):
     return None
 
 @app.callback(
+    Output("toggle-button4", "className"),
+    Output("toggle-button2", "className"),
+    Input("category_dropdown", "value"),
+)
+def toggle_class(category):
+    if category == "Branchen":
+        return "d-none btn primary", "d-block btn primary"
+    return "d-block btn primary", "d-none btn primary"
+    
+    
+
+@app.callback(
     Output("popup", "className"),
     Input("toggle-button", "n_clicks"),
     Input("toggle-button-close", "n_clicks"),
@@ -356,6 +387,18 @@ def toggle_class2(n1, n2, current_class):
         return "h-100 position-absolute left-0 col-12 top-0-pixel"
     else:
         return "h-100 position-absolute left-0 col-12 top-100-percent"
+    
+@app.callback(
+    Output("popup4", "className"),
+    Input("toggle-button4", "n_clicks"),
+    Input("toggle-button-close4", "n_clicks"),
+    State("popup4", "className")
+)
+def toggle_class4(n1, n2, current_class):
+    if "top-100-percent" in current_class:
+        return "h-100 position-absolute left-0 col-12 top-0-pixel"
+    else:
+        return "h-100 position-absolute left-0 col-12 top-100-percent"    
     
 def process_branchen_data(df, entity, start_date, end_date):
     time_transaction_data = df[(df['date'] >= pd.to_datetime(start_date)) & (df['date'] <= pd.to_datetime(end_date))]
@@ -392,13 +435,18 @@ def create_branchen_charts(umsatz_Jahr_Merchant, top_5, flop_5):
     Input("entity_dropdown", "value"),
     Input("date-range-start", "start_date"),
     Input("date-range-start", "end_date"),
-    Input('timed_transaction_data', 'data')
+    Input('timed_transaction_data', 'data'),
+    Input('timed_unternehmen_transaction_data', 'data'),
+    Input('timed_branchen_transaction_data', 'data'),
+
 )
-def render_detailview(category, entity, start_date_first, end_date_first, timed_transaction_data):
+def render_detailview(category, entity, start_date_first, end_date_first, timed_transaction_data, timed_unternehmen_data, timed_branchen_data):
     if timed_transaction_data is None:
         return dbc.Alert("Keine Transaktionsdaten verfügbar.", color="warning")
 
     df = pd.DataFrame(timed_transaction_data)
+    timed_unternehmen_data = pd.DataFrame(timed_unternehmen_data)
+    timed_branchen_data = pd.DataFrame(timed_branchen_data)
     df['date'] = pd.to_datetime(df['date'])
 
     if category == 'Branchen' and entity is not None:
@@ -577,15 +625,15 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
         # Weitere Berechnungen und KPIs
         Marktkapitalisierung = unternehmen_transaktionen["amount"].sum()
-        Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        MarktkapitalisierungDisplay = f"{Marktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
 
         DurchschnittTransaktionshöhe = unternehmen_transaktionen['amount'].mean()
-        DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} € ".replace(",", "X").replace(".", ",").replace("X", ".")
+        DurchschnittTransaktionshöheDisplay = f"{DurchschnittTransaktionshöhe:,.2f} € ".replace(",", "X").replace(".", ",").replace("X", ".")
 
         GesamtTransaktionen = unternehmen_transaktionen["merchant_id"].count()
         EinzigartigeKäufer = unternehmen_transaktionen["client_id"].nunique()
         DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
-        DurchschnittTransaktionenProKäufer = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
+        DurchschnittTransaktionenProKäuferDisplay = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
 
         GesamtAusgabenProClient = df.groupby("client_id")["amount"].sum()
         Durchschnitt_gesamt = GesamtAusgabenProClient.mean()
@@ -593,10 +641,10 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
         DurchschnittBranche = UnternehmensAusgabenProClient.mean()
         ConsumerMoneySpent = (DurchschnittBranche / Durchschnitt_gesamt) * 100
-        ConsumerMoneySpent = f"{ConsumerMoneySpent:,.2f} % ".replace(",", "X").replace(".", ",").replace("X", ".")
+        ConsumerMoneySpentDisplay = f"{ConsumerMoneySpent:,.2f} % ".replace(",", "X").replace(".", ",").replace("X", ".")
 
         CustomerLifetimeValue = Durchschnitt_gesamt / EinzigartigeKäufer * 100
-        CustomerLifetimeValue = f"{CustomerLifetimeValue:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        CustomerLifetimeValueDisplay = f"{CustomerLifetimeValue:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
 
         bundesstaat_transaktionen = df.groupby('merchant_state')['merchant_id'].count().reset_index(name='transaction_count')
 
@@ -623,14 +671,64 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
             template="plotly_white"
         )
 
+        # =====================
+
+
+    
+        #MarktkapitalisierungUnternehmen = unternehmen_transaktionen["amount"].sum()
+        unternehmen_mcc = timed_unternehmen_data['mcc'].iloc[0]  
+        unternehmen_mcc = int(unternehmen_mcc)  # Sicherstellen, dass es ein Integer ist
+        print("MCC des Unternehmens:", unternehmen_mcc)
+        GesamtMarktkapitalisierungBranche = df[df['mcc'] == unternehmen_mcc]["amount"].sum()
+        
+        
+        
+        
+        
+        #unternehmen_preisbereich = df['amount'] = df['amount'].replace('[\$,]', '', regex=True).astype(float) 
+        #unternehmen_transaktionen = df[df['merchant_id'] == entity] 
+        
+        
+        #Bereiche definieren (<50, 50-200, >20)
+        #Bereiche = [-float('inf'), 50, 200, float('inf')] 
+        #labels = ['Klein (<=50)', 'Mittel (50-200)', 'Groß (>200)']
+
+
+        #Transaktionshöhe anzahl pro Bereich 
+        ErsterPreisbereich = timed_unternehmen_data[timed_unternehmen_data['amount']<50]['amount'].count()
+        #ZweiterPreisbereich = unternehmen_transaktionen[unternehmen_transaktionen['amount']>=50 & unternehmen_transaktionen['amount']<=200].count()
+        ZweiterPreisbereich = timed_unternehmen_data[(timed_unternehmen_data['amount'] >= 50) & (timed_unternehmen_data['amount'] <= 200)]['amount'].count()
+        DritterPreisbereich = timed_unternehmen_data[timed_unternehmen_data['amount']>200]['amount'].count()
+    
+
+      
+        # Kreisdiagramme 
+        fig_pie = px.pie(
+            names=["Marktkapitalisierung", "Gesamtkapitalisierung je Branche"],
+            values=[Marktkapitalisierung, GesamtMarktkapitalisierungBranche],
+            title="Marktkapitalverteilung"
+        )
+        
+        
+        #2. Kreisdiagramm 
+        fig_pie_2 = px.pie(
+            names=["Preisbereich1", "Preisbereich2", "Preisbereich3"],
+            values=[ErsterPreisbereich, ZweiterPreisbereich, DritterPreisbereich],
+            title='Anteil der Transaktionshöhe nach Bereichen',
+            labels = ['Klein (<=50)', 'Mittel (50-200)', 'Groß (>200)']
+        )
+
+
+        # =====================
+
         kpis = [
-            {'Markt- kapitalisierung': Marktkapitalisierung},
-            {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöhe},
-            {'durchschn. Transaktionen pro Käufer': DurchschnittTransaktionenProKäufer},
+            {'Markt- kapitalisierung': MarktkapitalisierungDisplay},
+            {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöheDisplay},
+            {'durchschn. Transaktionen pro Käufer': DurchschnittTransaktionenProKäuferDisplay},
             {'Umsatzwachstum (%)': 87.42},
-            {'Consumer Money Spent (%)': ConsumerMoneySpent},
+            {'Consumer Money Spent (%)': ConsumerMoneySpentDisplay},
             {'Käufer': EinzigartigeKäufer},
-            {'Customer Lifetime Value': CustomerLifetimeValue},
+            {'Customer Lifetime Value': CustomerLifetimeValueDisplay},
         ]
 
         return [
@@ -639,19 +737,21 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
                     create_kpi_cards(kpis)
                 ,width=12, className="detail-view-kpis d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
                 dbc.Col([
-                    html.Div("Kreisdiagramme"),
                     dbc.Col([
-
-                    ], width=12, id="gesamtkapitalisierung_container")
+                         dbc.Col([
+                            dcc.Graph(figure=fig_pie, className="w-100"),
+                        ], width=6),
+                        dbc.Col([
+                            dcc.Graph(figure=fig_pie_2)
+                        ], width=6),
+                    ], width=12, id="gesamtkapitalisierung_container", className="d-flex justify-content-between align-content-start p-3 overflow-y-scroll"),
                 ], width=12)
             ], width=5, className="detail-view-left-section" ),
             dbc.Col([
                 dbc.Col([
-                    html.Div("Plots"),
                     dcc.Graph(figure=bar_umsatz_pro_monat)
                 ], width=12, className="detail-view-right-section-1"),
                 dbc.Col([
-                    html.Div("Persona"),
                     dcc.Graph(figure=fig_bar_chart)
                 ], width=12, className="detail-view-right-section-2"),
             ], width=7, className="detail-view-right-section")
@@ -710,9 +810,62 @@ def render_detailview2(category, timed_branchen_data, timed_unternehmen_data):
         table
     ], className="w-100 overflow-scroll")
 
+@app.callback(
+    Output("detail-view4", "children"),
+    Input("category_dropdown", "value"),
+    Input('timed_branchen_transaction_data', 'data'),
+    Input('timed_unternehmen_transaction_data', 'data'),
+)
+def render_detailview4(category, timed_branchen_data, timed_unternehmen_data):
+    if category == 'Unternehmen':
+        if timed_unternehmen_data is None or len(timed_unternehmen_data) == 0:
+            return html.Div("Keine Daten verfügbar.")
+
+        df = pd.DataFrame(timed_unternehmen_data)
+        # Gruppiere nach Bundesstaat
+        kpi_df = df.groupby("merchant_state").agg(
+            gesamtumsatz=("amount", "sum"),
+            anzahl_transaktionen=("amount", "count"),
+            durchschn_transaktionshoehe=("amount", "mean"),
+            einzigartige_kaeufer=("client_id", "nunique")
+        ).reset_index()
+        kpi_df["durchschn_transaktionen_pro_kaeufer"] = kpi_df["anzahl_transaktionen"] / kpi_df["einzigartige_kaeufer"]
+
+        # Formatierungen
+        kpi_df["gesamtumsatz"] = kpi_df["gesamtumsatz"].map(lambda x: f"{x:,.2f} €".replace(",", "X").replace(".", ",").replace("X", "."))
+        kpi_df["durchschn_transaktionshoehe"] = kpi_df["durchschn_transaktionshoehe"].map(lambda x: f"{x:,.2f} €".replace(",", "X").replace(".", ",").replace("X", "."))
+        kpi_df["durchschn_transaktionen_pro_kaeufer"] = kpi_df["durchschn_transaktionen_pro_kaeufer"].map(lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+        columns = [
+            ("merchant_state", "Bundesstaat"),
+            ("gesamtumsatz", "Gesamtumsatz"),
+            ("anzahl_transaktionen", "Anzahl Transaktionen"),
+            ("durchschn_transaktionshoehe", "Ø Transaktionshöhe"),
+            ("einzigartige_kaeufer", "Einzigartige Käufer"),
+            ("durchschn_transaktionen_pro_kaeufer", "Ø Transaktionen/Käufer"),
+        ]
+
+        table = html.Table([
+            html.Thead([
+                html.Tr([html.Th(name) for _, name in columns])
+            ]),
+            html.Tbody([
+                html.Tr([
+                    html.Td(row[col]) for col, _ in columns
+                ]) for _, row in kpi_df.iterrows()
+            ])
+        ], className="table table-striped table-hover table-bordered w-100")
+
+        return html.Div([
+            html.Div("KPIs je Bundesstaat für das Unternehmen", className="fw-bold mb-2"),
+            table
+        ], className="w-100 overflow-scroll")
+
 
 @app.callback(
     Output("branche_title", "children"),
+    Output("branche_title2", "children"),
+    Output("branche_title4", "children"),
     Input("category_dropdown", "value"),
     Input("entity_dropdown", "value"),
 )
@@ -723,10 +876,15 @@ def update_detailView(category, entity):
         ].values
 
         if beschreibung.size > 0:
-            return f"{entity} – {beschreibung[0]}"
+            value = f"{entity} – {beschreibung[0]}"
         else:
-            return f"{entity} – Beschreibung nicht gefunden"
-    return ""
+            value = f"{entity} – Beschreibung nicht gefunden"
+        # Gib immer ein Tupel mit drei gleichen Strings zurück!
+        return value, value, value
+    if category == 'Unternehmen' and entity is not None:
+        value = f"Unternehmensprofil: {entity}"
+        return value, value, value
+    return "", "", ""
 
 if __name__ == '__main__':
     app.run(debug=True)
