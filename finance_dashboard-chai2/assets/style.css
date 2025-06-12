@@ -1,0 +1,126 @@
+.test {
+    font-size: 80px;
+}
+
+.body {
+    height: 100vh;
+    overflow: hidden;
+    --bs-gutter-x: 0rem !important;
+}
+
+.navbar {
+    border-style: solid;
+    border-width: 0.5px;
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+.filterbar {
+    border-right: solid;
+    border-width: 0.5px;
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+.ranklist_item {
+    border: none;
+    transition: 525ms ease-in-out;
+}
+
+.ranklist_item:hover {
+    border: none;
+    background-color: rgba(205,205,205,0.8);
+    cursor: pointer;
+}
+
+.ranklist {
+    
+}
+
+.ranklist_container {
+    margin-left: 100px;
+}
+
+#popup {
+    background-color: white;
+    transition: 525ms ease-in-out;
+}
+
+#popup2 {
+    background-color: white;
+    transition: 525ms ease-in-out;
+}
+
+#popup4 {
+    background-color: white;
+    transition: 525ms ease-in-out;
+}
+
+.popup-header {
+    border-bottom: solid rgba(0, 0, 0, 0.2);
+}
+
+.icon1 {
+    width: 32px;
+    height: 32px;
+    transition: 225ms ease-in-out;
+}
+
+.icon1:hover {
+    cursor: pointer;
+    opacity: 50%;
+}
+
+.top-100-percent {
+    top: 100%;
+}
+
+.top-0-pixel {
+    top: 0;
+}
+
+.detail-view-left-section::-webkit-scrollbar {
+    display: none;
+} 
+
+.detail-view-right-section-1 {
+    height: 40%;
+}
+
+.detail-view-right-section-2 {
+    height: 40%;
+}
+
+.kpi-card {
+    width: 40%;
+    
+}
+
+.kpi-card-body:hover {
+    transition: 225ms ease-in-out;
+    border-color: #0d6efd !important;
+}
+
+.kpi-card-body:hover {
+    background-color: #0d6efd;
+    color: white;
+    cursor: pointer;
+}
+
+.kpi-card p {
+    font-size: 12px;
+}
+
+.navigation-button {
+    border-radius: 0px;
+    background-color: #0d6efd;
+}
+
+.navigation-button .active {
+    border-radius: 0px;
+    background-color: #0242a2;
+}
+
+.persona_card {
+
+    height: 200px;
+
+}
