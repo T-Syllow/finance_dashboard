@@ -4,7 +4,7 @@ import os
 # Liste deiner CSV-Dateien
 csv_files = [
     'cleaned_cards_data.csv',
-    'cleaned_transaction_data_500k.csv',
+    'cleaned_transaction_data_50k.csv',
     'cleaned_users_data.csv'
 ]
 

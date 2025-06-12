@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Name der Originaldatei
-INPUT_FILE="./transactions_data.csv"
+INPUT_FILE="./newData/cleaned_transaction_data.csv"
 
 # Name der Zieldatei
-OUTPUT_FILE="./transactions_data_mio.csv"
+OUTPUT_FILE="./newData/cleaned_transaction_data_50k.csv"
 
 # Anzahl der gewünschten Zeilen (inkl. Header)
-LINES_TO_KEEP=1000001  # 1.000.000 Datenzeilen + 1 Headerzeile
+LINES_TO_KEEP=50001  # 50.000 Datenzeilen + 1 Headerzeile
 
 # Prüfen, ob die Datei existiert
 if [[ ! -f "$INPUT_FILE" ]]; then
