@@ -6,6 +6,7 @@
     height: 100vh;
     overflow: hidden;
     --bs-gutter-x: 0rem !important;
+    background-color: rgba(2, 206, 241, 0.2);
 }
 
 .navbar {
@@ -23,6 +24,7 @@
 .ranklist_item {
     border: none;
     transition: 525ms ease-in-out;
+    font-size: 14px;
 }
 
 .ranklist_item:hover {
@@ -36,7 +38,7 @@
 }
 
 .ranklist_container {
-    margin-left: 100px;
+    margin-left: 30px;
 }
 
 #popup {
@@ -56,6 +58,14 @@
 
 .popup-header {
     border-bottom: solid rgba(0, 0, 0, 0.2);
+}
+
+.toggle_button {
+    border-radius: 10px;
+    background-color: #000000;
+    color: white;
+    transition: 225ms ease-in-out;
+    width: 50%;
 }
 
 .icon1 {
@@ -123,4 +133,10 @@
 
     height: 200px;
 
+}
+
+@media (max-width: 768px) {
+  .detail-view-left-section, .detail-view-right-section {
+    padding: 0 !important;
+  }
 }
