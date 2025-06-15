@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 
+
 with urlopen('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json') as response:
     counties = json.load(response)
 
@@ -48,7 +49,22 @@ blues_dark_to_light = [
     "#6baed6",  # mittelblau
     "#9ecae1",  # hellblau
     "#deebf7"   # sehr hellblau
-]       
+]      
+
+blues_dark_to_light_12 = [
+            "#08306b",  # sehr dunkelblau
+            "#08519c",
+            "#0b318f",
+            "#1664ad",
+            "#2171b5",
+            "#2383c1",
+            "#2b8cbe",
+            "#3182bd",
+            "#4292c6",
+            "#4fa3ca",
+            "#6baed6",
+            "#4292c6"   # nochmal ein mittlerer Ton, damit es 12 sind
+        ]
 
 def get_income_category_colors_and_labels(einkommensklassen):
     color_segments = [klass["color"] for klass in einkommensklassen]
@@ -68,7 +84,7 @@ def get_income_category_colors_and_labels(einkommensklassen):
 # --- Read in data ---
 data_folder = "./newData/"
 parquet_folder = "./parquet_data/"
-transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_10k.csv", sep=',', encoding='utf-8')
+transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_50k.csv", sep=',', encoding='utf-8')
 # transaction_data = pd.read_parquet(parquet_folder + "cleaned_transaction_data_50k.parquet", columns=["id","date","client_id","card_id","amount","merchant_id","merchant_city","merchant_state","mcc"])
 cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv")
 users_data = pd.read_csv(data_folder + "cleaned_users_data.csv")
@@ -296,17 +312,23 @@ def update_entity_dropdown(category):
         return categories
     return merchants.tolist()
 
-def create_merchant_card(merchant_id, total_revenue, transaction_count, standorte):
-    return dbc.Card([
-        dbc.CardHeader(f"Händler-ID: {merchant_id}"),
-        dbc.CardBody([
-            html.H5("Unternehmensprofil", className="card-title"),
-            html.P(f"Gesamtumsatz: {total_revenue:.2f} €", className="card-text"),
-            html.P(f"Anzahl Transaktionen: {transaction_count}", className="card-text"),
-            html.H6("Niederlassungen:"),
-            len(standorte),
-        ])
-    ], color="light", outline=True)
+def create_merchant_card(merchant_id, total_revenue, transaction_count, standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart):
+    return [
+        dbc.Card([
+            dbc.CardHeader(f"Händler-ID: {merchant_id}", style={"backgroundColor": "#3182bd", "color": "white"}),
+            dbc.CardBody([
+                html.H5("Unternehmensprofil", className="card-title"),
+                html.P(f"Branche: {branchenbeschreibung}", className="card-text"),
+                html.P(f"Gesamtumsatz: {total_revenue:.2f} €", className="card-text"),
+                html.P(f"Marktanteil: {marktanteil_display}", className="card-text"),
+                html.P(f"Anzahl Transaktionen: {transaction_count}", className="card-text"),
+                html.P("Niederlassungen: " + str(len(standorte)), className="card-text"),
+            ], style={"backgroundColor": "#deebf7"})
+        ], color="light", outline=True, style={"margin": "10px 0"}),
+        dbc.Col([
+            dcc.Graph(figure=fig_bar_chart, className="w-100", style={"height": "400px"}),
+        ], width=12, className=""),
+    ]
 
 def create_ranklist(title, content, list_id):
     if title == 'Top 5':
@@ -327,12 +349,14 @@ def create_ranklist(title, content, list_id):
             ], width=12, className="ranklist_wrapper d-flex")
         ])
    
-def handle_unternehmen(df, entity_value):
+def handle_unternehmen(df, entity_value, unternehmen_transaktionen):
     merchant_id = int(entity_value)
     df_merchant = df[df['merchant_id'] == merchant_id]
 
     if df_merchant.empty:
         return dbc.Alert("Keine Daten für dieses Unternehmen verfügbar.", color="warning")
+    
+    unternehmen_transaktionen = pd.DataFrame(unternehmen_transaktionen)
 
     total_revenue = df_merchant['amount'].sum()
     standorte = (
@@ -341,7 +365,59 @@ def handle_unternehmen(df, entity_value):
         .sort_values(by=['merchant_state', 'merchant_city'])
     )
 
-    return create_merchant_card(merchant_id, total_revenue, len(df_merchant), standorte)
+    branchenbeschreibung = "Unbekannte Branche"
+
+    if 'mcc' in df_merchant.columns and not df_merchant['mcc'].isnull().all():
+        mcc_code = str(int(df_merchant['mcc'].iloc[0]))
+        branchenbeschreibung = mcc_codes_data.loc[
+            mcc_codes_data["mcc_code"] == mcc_code, "description"
+        ].values
+        branchenbeschreibung = branchenbeschreibung[0] if len(branchenbeschreibung) > 0 else "Unbekannte Branche"
+    else:
+        branchenbeschreibung = "Unbekannte Branche"
+
+    marktanteil_display = "n/a"
+
+    # Marktanteil berechnen
+    branche_umsatz = df[df['mcc'] == int(mcc_code)]['amount'].sum() if 'mcc' in df.columns else 0
+    if branche_umsatz > 0:
+        marktanteil = total_revenue / branche_umsatz * 100
+        marktanteil_display = f"{marktanteil:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
+    else:
+        marktanteil_display = "n/a"
+
+    top_10_bundesstaaten = (
+        unternehmen_transaktionen.groupby('merchant_state')['amount']
+        .sum()
+        .reset_index(name='total_revenue')
+        .sort_values(by='total_revenue', ascending=False)
+        .head(10)
+    )
+
+    # Bar-Chart erstellen
+    fig_bar_chart = px.bar(
+        top_10_bundesstaaten,
+        x='total_revenue',
+        y='merchant_state',
+        orientation='h',  # Horizontaler Bar-Chart
+        title='Top 10 Bundesstaaten nach Umsatz',
+        labels={'total_revenue': 'Umsatz (€)', 'merchant_state': 'Bundesstaat'},
+        text_auto=True,
+        color='merchant_state',
+        color_discrete_sequence=blues_dark_to_light,
+        category_orders={
+            "merchant_state": list(top_10_bundesstaaten.sort_values("total_revenue", ascending=False)["merchant_state"])
+        }
+    )
+
+    # Layout des Bar-Charts anpassen
+    fig_bar_chart.update_layout(
+        xaxis_title="Umsatz (€)",
+        yaxis_title="Bundesstaat",
+        template="plotly_white",
+    )
+
+    return create_merchant_card(merchant_id, total_revenue, len(df_merchant), standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart)
 
 def handle_branchen(df, entity_value):
     df_branche = df[df['mcc'] == int(entity_value)]
@@ -391,14 +467,14 @@ def handle_branchen(df, entity_value):
     Input('entity_dropdown', 'value'),
     Input('timed_transaction_data', 'data'),
 )
-def update_right_section(category, entity_value, timed_transaction_data):
-    if timed_transaction_data is None or entity_value is None:
+def update_right_section(category, entity_value, timed_unternehmen_transaction_data):
+    if timed_unternehmen_transaction_data is None or entity_value is None:
         return None
 
-    df = pd.DataFrame(timed_transaction_data)
+    df = pd.DataFrame(timed_unternehmen_transaction_data)
 
     if category == 'Unternehmen':
-        return handle_unternehmen(df, entity_value)
+        return handle_unternehmen(df, entity_value, timed_unternehmen_transaction_data)
 
     if category == 'Branchen':
         return handle_branchen(df, entity_value)
@@ -580,16 +656,16 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
        
 
-    #Marktkapitalisierung berechnet
+        #Marktkapitalisierung berechnet
 
         Marktkapitalisierung = umsatz_pro_merchant["gesamtumsatz"].sum()  
         Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
         print("Marktkapitalisierung: ", Marktkapitalisierung)
 
-# =====================================================================================
+        # =====================================================================================
 
 
-    #Durchschnitt der Transaktionen Pro Käufer - noch nicht fertig 
+        #Durchschnitt der Transaktionen Pro Käufer - noch nicht fertig 
 
         #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
         #branchen_transaktionen = time_transaction_data[time_transaction_data['mcc'] == int(entity)]
@@ -603,9 +679,9 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         print("Durchschnitt der Transaktionen pro Käufer: ", DurchschnittTransaktionenProKäufer)
 
 
-# =====================================================================================
+        # =====================================================================================
 
-    #Durchschnittliche Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum
+        #Durchschnittliche Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum
 
         #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
         DurchschnittTransaktionshöhe = branchen_transaktionen['amount'].mean()
@@ -613,9 +689,9 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
         print("Durchschnittliche Transaktionshöhe: ", DurchschnittTransaktionshöhe)
 
-# =====================================================================================
+        # =====================================================================================
         
-    #Consumer Money Spent (%)
+        #Consumer Money Spent (%)
         
         GesamtAusgabenProClient = transaction_data.groupby("client_id")["amount"].sum()
         Durchschnitt_gesamt = GesamtAusgabenProClient.mean()
@@ -628,20 +704,73 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
         print("Consumer Money Spent (%):", ConsumerMoneySpent)
 
-# =====================================================================================
+        # =====================================================================================
 
         #Unique Customers
         EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
 
-       
+        umsatzwachstum_display = "n/a"
 
+        umsatz_pro_jahr = ""
 
-        # ============================= Code Ende =============================================
+        if not branchen_transaktionen.empty:
+            branchen_transaktionen['date'] = pd.to_datetime(branchen_transaktionen['date'])
+            branchen_transaktionen['year'] = branchen_transaktionen['date'].dt.year
+
+            start_year = pd.to_datetime(start_date_first).year
+            end_year = pd.to_datetime(end_date_first).year
+
+            umsatz_pro_jahr = branchen_transaktionen.groupby('year')['amount'].sum()
+            print("Umsatz pro Jahr:", umsatz_pro_jahr)
+
+            if start_year in umsatz_pro_jahr.index and end_year in umsatz_pro_jahr.index:
+                umsatz_anfang = umsatz_pro_jahr.loc[start_year]
+                umsatz_ende = umsatz_pro_jahr.loc[end_year]
+                print("Umsatz Startjahr:", umsatz_anfang)
+                print("Umsatz Endjahr:", umsatz_ende)
+                if umsatz_anfang != 0:
+                    umsatzwachstum = ((umsatz_ende - umsatz_anfang) / umsatz_anfang) * 100
+                    umsatzwachstum_display = f"{umsatzwachstum:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
+                else:
+                    umsatzwachstum_display = "n/a"
+            else:
+                umsatzwachstum_display = "n/a"
+        else:
+            umsatzwachstum_display = "n/a"
+
+        
+
+        umsatz_pro_jahr_chart = None
+        if isinstance(umsatz_pro_jahr, pd.Series) and not umsatz_pro_jahr.empty:
+            umsatz_pro_jahr_df = umsatz_pro_jahr.reset_index()
+            umsatz_pro_jahr_df.columns = ['Jahr', 'Umsatz']
+            # Anzahl der Jahre bestimmen
+            umsatz_pro_jahr_df['Jahr'] = umsatz_pro_jahr_df['Jahr'].astype(str)
+            n_years = umsatz_pro_jahr_df['Jahr'].nunique()
+            # Passende Anzahl Blautöne aus der Skala ziehen
+            blues = px.colors.sample_colorscale("Blues", [i/(n_years-1) if n_years > 1 else 0.5 for i in range(n_years)])
+            umsatz_pro_jahr_chart = px.bar(
+                umsatz_pro_jahr_df,
+                x='Jahr',
+                y='Umsatz',
+                title='Umsatz pro Jahr',
+                labels={'Jahr': 'Jahr', 'Umsatz': 'Umsatz (€)'},
+                text_auto=True,
+                color='Jahr',
+                color_discrete_sequence=blues_dark_to_light_12
+            )
+            umsatz_pro_jahr_chart.update_layout(
+                xaxis_title="Jahr",
+                yaxis_title="Umsatz (€)",
+                template="plotly_white",
+                showlegend=False
+            )
+
         kpis = [
                 {'Marktkapitalisierung': Marktkapitalisierung},   # Berechnet die Marktkapitalisierung 
                 {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöhe},    # Berechnet die durchschn. Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum in Euro 
                 {'durchschn. Transaktionen pro Käufer': DurchschnittTransaktionenProKäufer}, # Berechnet die Menge an Transaktionen, die ein Käufer im Durchschnitt im ausgewählten Zeitraum tätigt.
-                {'Umsatzwachstum (%)': 87.42},  # (optional) diese KPI müsst ihr nicht berechnen!! 
+                {'Umsatzwachstum (Jahresvergleich)': umsatzwachstum_display},  # Umsatzwachstum dynamisch berechnet
                 {'Consumer Money Spent (%)': ConsumerMoneySpent},  # Berechnet zunächst die durchschn. Menge an Geld, die ein User im Schnitt im ausgewählten Zeitraum ausgibt. Dann berechnet wie viel er für die Branche im durchschnitt ausgibt. und setzt es anschließend ins Verhältnis! ==> %
                 {'Käufer':  EinzigartigeKäufer}, # Wie viele einzigartige User haben im ausgewählten Zeitrsaum bei der Branche eingekauft?
         ]
@@ -653,12 +782,15 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
                         dbc.Card([
                             dbc.CardHeader(
                                 dbc.Tabs([
-                                    dbc.Tab(dcc.Graph(figure=fig1, id="card-content", className="card-text w-100"), label="Top 5", tab_id="tab-1"),
-                                    dbc.Tab(dcc.Graph(figure=fig2, id="card-content", className="card-text w-100"), label="Flop 5", tab_id="tab-2"),
+                                    dbc.Tab(dcc.Graph(figure=fig1, id="card-content", className="card-text w-100", style={"height": "350px"}), label="Top 5", tab_id="tab-1"),
+                                    dbc.Tab(dcc.Graph(figure=fig2, id="card-content", className="card-text w-100", style={"height": "350px"}), label="Flop 5", tab_id="tab-2"),
                                 ], active_tab="tab-1"),
                             ),
                         ], style={"background-color": "#FFFFFF"}),
                     ], width=12, className="detail-view-right-section-1"),
+                    dbc.Col([
+                        dcc.Graph(figure=umsatz_pro_jahr_chart, className="w-100", style={"height": "300px"}) if umsatz_pro_jahr_chart else None,
+                    ], width=12, className="detail-view-right-section-2"),
                 ], md=9, sm=12, className="detail-view-right-section"),
         ]
 
@@ -730,7 +862,12 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
             orientation='h',  # Horizontaler Bar-Chart
             title='Top 3 Bundesstaaten nach Anzahl der Transaktionen',
             labels={'transaction_count': 'Anzahl der Transaktionen', 'merchant_state': 'Bundesstaat'},
-            text_auto=True
+            text_auto=True,
+            color='merchant_state',  # Damit jede Zeile eine andere Farbe bekommt
+            color_discrete_sequence=blues_dark_to_light,
+            category_orders={
+                "merchant_state": list(top_3_bundesstaaten.sort_values("transaction_count", ascending=False)["merchant_state"])
+            }
         )
 
         # Layout des Bar-Charts anpassen
@@ -750,51 +887,42 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         print("MCC des Unternehmens:", unternehmen_mcc)
         GesamtMarktkapitalisierungBranche = df[df['mcc'] == unternehmen_mcc]["amount"].sum()
         
-        
-        
-        
-        
-        #unternehmen_preisbereich = df['amount'] = df['amount'].replace('[\$,]', '', regex=True).astype(float) 
-        #unternehmen_transaktionen = df[df['merchant_id'] == entity] 
-        
-        
-        #Bereiche definieren (<50, 50-200, >20)
-        #Bereiche = [-float('inf'), 50, 200, float('inf')] 
-        #labels = ['Klein (<=50)', 'Mittel (50-200)', 'Groß (>200)']
-
+        branchenbeschreibung = mcc_codes_data.loc[
+            mcc_codes_data["mcc_code"] == str(unternehmen_mcc), "description"
+        ].values
+        branchenbeschreibung = branchenbeschreibung[0] if len(branchenbeschreibung) > 0 else "Unbekannte Branche"
 
         #Transaktionshöhe anzahl pro Bereich 
         ErsterPreisbereich = timed_unternehmen_data[timed_unternehmen_data['amount']<50]['amount'].count()
         #ZweiterPreisbereich = unternehmen_transaktionen[unternehmen_transaktionen['amount']>=50 & unternehmen_transaktionen['amount']<=200].count()
         ZweiterPreisbereich = timed_unternehmen_data[(timed_unternehmen_data['amount'] >= 50) & (timed_unternehmen_data['amount'] <= 200)]['amount'].count()
         DritterPreisbereich = timed_unternehmen_data[timed_unternehmen_data['amount']>200]['amount'].count()
-    
 
-      
-        # Kreisdiagramme 
         fig_pie = px.pie(
             names=["Marktkapitalisierung", "Gesamtkapitalisierung je Branche"],
             values=[Marktkapitalisierung, GesamtMarktkapitalisierungBranche],
-            title="Marktkapitalverteilung"
+            title="Marktanteil in " + branchenbeschreibung,
+            color_discrete_sequence=blues_dark_to_light
         )
         
         
         #2. Kreisdiagramm 
         fig_pie_2 = px.pie(
-            names=["Preisbereich1", "Preisbereich2", "Preisbereich3"],
+            names=["bis 50€", "50€ - 200€", "über 200€"],
             values=[ErsterPreisbereich, ZweiterPreisbereich, DritterPreisbereich],
             title='Anteil der Transaktionshöhe nach Bereichen',
-            labels = ['Klein (<=50)', 'Mittel (50-200)', 'Groß (>200)']
+            labels = ['bis 50€', '50€ - 200€', 'über 200€'],
+            color_discrete_sequence=blues_dark_to_light
         )
 
 
         # =====================
 
         kpis = [
-            {'Markt- kapitalisierung': MarktkapitalisierungDisplay},
+            {'Marktkapitalisierung': MarktkapitalisierungDisplay},
             {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöheDisplay},
             {'durchschn. Transaktionen pro Käufer': DurchschnittTransaktionenProKäuferDisplay},
-            {'Umsatzwachstum (%)': 87.42},
+            {'Umsatzwachstum (Jahresvergleich)': 87.42},
             {'Consumer Money Spent (%)': ConsumerMoneySpentDisplay},
             {'Käufer': EinzigartigeKäufer},
             {'Customer Lifetime Value': CustomerLifetimeValueDisplay},

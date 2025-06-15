@@ -108,7 +108,7 @@
     color: white;
     transition: 225ms ease-in-out;
     width: 50%;
-    border: none;
+    border: solid black;
     font-size: 14px;
 }
 
@@ -229,6 +229,13 @@
    
 }
 
+.detail-view-right-section {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 50px;
+}
+
 /* .kpi-card {
     width: 40%;
     
@@ -269,14 +276,14 @@
 }
 
 .Select-control {
-    background-color: black;
+    background-color: black !important;
     transition: 225ms ease-in-out;
-    border: solid;
+    border: solid black !important;
 }
 
 .Select-control:hover {
     background-color: rgba(0,0,0,0.6);
-    border: solid rgb(100, 100, 255);
+    border: solid rgb(100, 100, 255) !important;
     cursor: pointer;
 }
 
