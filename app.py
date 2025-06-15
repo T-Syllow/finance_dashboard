@@ -806,24 +806,29 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
                     create_kpi_cards(kpis)
                 ,width=12, className="detail-view-kpis d-flex flex-wrap justify-content-start align-content-start gap-2 overflow-y-scroll"),
                 dbc.Col([
-                    dbc.Col([
-                         dbc.Col([
-                            dcc.Graph(figure=fig_pie, className="w-100"),
-                        ], width=6),
-                        dbc.Col([
-                            dcc.Graph(figure=fig_pie_2, className="w-100"),
-                        ], width=6),
-                    ], width=12, id="gesamtkapitalisierung_container", className="d-flex justify-content-between align-content-start p-3 overflow-y-scroll"),
+                    
                 ], width=12)
-            ], md=6, sm=12, className="detail-view-left-section" ),
+            ], md=3, sm=12, className="detail-view-left-section" ),
             dbc.Col([
                 dbc.Col([
-                    dcc.Graph(figure=bar_umsatz_pro_monat, className="w-100"),
-                ], width=12, className="detail-view-right-section-1"),
+                    dcc.Graph(figure=bar_umsatz_pro_monat, className="w-100", style={"height": "400px"}),
+                ], width=12, className="detail-view-right-section-3"),
                 dbc.Col([
-                    dcc.Graph(figure=fig_bar_chart, className="w-100"),
-                ], width=12, className="detail-view-right-section-2"),
-            ], md=6, sm=12, className="detail-view-right-section")
+                    dbc.Col([    
+                        dcc.Graph(figure=fig_bar_chart, className="w-100", style={"height": "300px"}),
+                    ], width=6),
+                    dbc.Col([
+                       dbc.Col([
+                            dbc.Col([
+                                dcc.Graph(figure=fig_pie, className="w-100"),
+                            ], width=6),
+                            dbc.Col([
+                                dcc.Graph(figure=fig_pie_2, className="w-100"),
+                            ], width=6),
+                        ], width=12, id="gesamtkapitalisierung_container", className="d-flex justify-content-between align-content-start p-3 overflow-y-scroll"),
+                    ], width=6),
+                ], width=12, className="detail-view-right-section-4 d-flex"),
+            ], md=9, sm=12, className="detail-view-right-section")
         ]
     
 
