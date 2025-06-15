@@ -42,6 +42,14 @@ EINKOMMENSKLASSEN = [
     {"label": "Superreiche / Elite",     "min": 500000, "max": 99999999, "color": "#5e4fa2"},
 ]
 
+blues_dark_to_light = [
+    "#08519c",  # sehr dunkelblau
+    "#3182bd",  # dunkelblau
+    "#6baed6",  # mittelblau
+    "#9ecae1",  # hellblau
+    "#deebf7"   # sehr hellblau
+]       
+
 def get_income_category_colors_and_labels(einkommensklassen):
     color_segments = [klass["color"] for klass in einkommensklassen]
     categories = []
@@ -87,23 +95,24 @@ app.layout = dbc.Container([
                     max_date_allowed=transaction_data['date'].max(),
                     start_date=transaction_data['date'].min(),
                     end_date=transaction_data['date'].max(),
-                    className=""
+                    className="datepicker"
                 ),
             ], width=12, className="gap-5" ,id='zeitraum_container'),
             dbc.Col([
                 dbc.Col([
-                    dcc.Dropdown(['Unternehmen', 'Branchen'], 'Branchen', id='category_dropdown')
+                    dcc.Dropdown(['Unternehmen', 'Branchen'], 'Branchen', id='category_dropdown',  className="main-dropdown")
                 ], width=3),
                 dbc.Col([
-                    dcc.Dropdown(['5411'],'5411', id='entity_dropdown'),
+                    dcc.Dropdown(['5411'],'5411', id='entity_dropdown', className="main-dropdown"),
                 ], width=8),
             ], width=12, className="d-flex py-2 gap-2 justify-content-start"),
-        ], width=6, className="py-3 px-5 filterbar"),
+        ], width=6, className="px-5 filterbar"),
         dbc.Col([
             dbc.Button('KPIs anzeigen', className='toggle_button', id="toggle-button" , n_clicks=0),
             dbc.Button('Branche anzeigen', className='toggle_button', id="toggle-button2" , n_clicks=0),
-            dbc.Button('Unternehmen anzeigen', className='toggle_button', id="toggle-button4" , n_clicks=0)
-        ], width=6, className="py-3 px-5 d-flex justify-content-end align-items-center gap-2"),
+            dbc.Button('Unternehmen anzeigen', className='toggle_button', id="toggle-button4" , n_clicks=0),
+            dbc.Button('Persona anzeigen', className='toggle_button', id="toggle-button5" , n_clicks=0)
+        ], width=6, className="px-5 d-flex justify-content-end align-items-center gap-2"),
     ], className="navbar"),
     dbc.Row([
         dbc.Col([
@@ -113,19 +122,14 @@ app.layout = dbc.Container([
             dbc.Row([
             
             ], id="right_section"),
-        ], width=6,),
+        ], width=5,),
     ], className="h-100"),
     dbc.Col([
         dbc.Row([
             dbc.Col([
                 html.H2("", id="branche_title"),
                 html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close")
-            ], width=12, className="px-5 py-4 d-flex justify-content-between"),
-        ], className="popup-header"),
-        dbc.Row([
-            dbc.Col([
-
-            ], width=12),
+            ], width=12, className="px-5 py-2 d-flex justify-content-between"),
         ], className="popup-header"),
         dbc.Row([
             
@@ -136,12 +140,7 @@ app.layout = dbc.Container([
             dbc.Col([
                 html.H2("", id="branche_title2"),
                 html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close2")
-            ], width=12, className="px-5 py-4 d-flex justify-content-between"),
-        ], className="popup-header"),
-        dbc.Row([
-            dbc.Col([
-
-            ], width=12),
+            ], width=12, className="px-5 py-2 d-flex justify-content-between"),
         ], className="popup-header"),
         dbc.Row([
             dbc.Col([
@@ -149,24 +148,32 @@ app.layout = dbc.Container([
             ], width=12, className="d-flex p-3", id="detail-view2")
         ], className="h-100 overflow-scroll")
     ], width=12, className="h-100 position-absolute left-0", id="popup2"),
-     dbc.Col([
+    dbc.Col([
         dbc.Row([
             dbc.Col([
                 html.H2("", id="branche_title4"),
                 html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close4")
-            ], width=12, className="px-5 py-4 d-flex justify-content-between"),
-        ], className="popup-header"),
-        dbc.Row([
-            dbc.Col([
-
-            ], width=12),
+            ], width=12, className="px-5 py-2 d-flex justify-content-between"),
         ], className="popup-header"),
         dbc.Row([
             dbc.Col([
                 dash_table.DataTable(data=[], page_size=10, style_table={'overflowX': 'auto'}, id='tbl_detailansicht_Unternehmen'),
             ], width=12, className="d-flex p-3", id="detail-view4")
         ], className="h-100 overflow-scroll")
-    ], width=12, className="h-100 position-absolute left-0", id="popup4")
+    ], width=12, className="h-100 position-absolute left-0", id="popup4"),
+    dbc.Col([
+        dbc.Row([
+            dbc.Col([
+                html.H2("", id="branche_title5"),
+                html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close5")
+            ], width=12, className="px-5 py-2 d-flex justify-content-between"),
+        ], className="popup-header"),
+        dbc.Row([
+            dbc.Col([
+                
+            ], width=12, className="d-flex p-3", id="detail-view5")
+        ], className="h-100 overflow-scroll")
+    ], width=12, className="h-100 position-absolute left-0", id="popup5")
 ], fluid=True, className="body position-relative")
 
 @app.callback(
@@ -302,10 +309,23 @@ def create_merchant_card(merchant_id, total_revenue, transaction_count, standort
     ], color="light", outline=True)
 
 def create_ranklist(title, content, list_id):
+    if title == 'Top 5':
+        return dbc.Row([
+            dbc.Col([
+                dbc.Col([
+                    html.Img(src="./assets/top.png", className="icon2"),
+                ], className="ranklist-title d-flex justify-content-start"),
+                dbc.ListGroup(content, numbered=True, id=list_id, className="ranklist p-2")
+            ], width=12, className="ranklist_wrapper d-flex")
+        ])
     return dbc.Row([
-        dbc.Label(title, className="text"),
-        dbc.ListGroup(content, numbered=True, id=list_id, className="ranklist p-2")
-    ])
+            dbc.Col([
+                dbc.Col([
+                    html.Img(src="./assets/flop.png", className="icon2"),
+                ], className="ranklist-title d-flex justify-content-start"),
+                dbc.ListGroup(content, numbered=True, id=list_id, className="ranklist p-2")
+            ], width=12, className="ranklist_wrapper d-flex")
+        ])
    
 def handle_unternehmen(df, entity_value):
     merchant_id = int(entity_value)
@@ -388,12 +408,13 @@ def update_right_section(category, entity_value, timed_transaction_data):
 @app.callback(
     Output("toggle-button4", "className"),
     Output("toggle-button2", "className"),
+    Output("toggle-button5", "className"),
     Input("category_dropdown", "value"),
 )
 def toggle_class(category):
     if category == "Branchen":
-        return "d-none toggle_button", "d-block toggle_button"
-    return "d-block toggle_button", "d-none toggle_button"
+        return "d-none toggle_button", "d-block toggle_button", "d-block toggle_button"
+    return "d-block toggle_button", "d-none toggle_button", "d-none toggle_button"
     
     
 
@@ -433,6 +454,18 @@ def toggle_class4(n1, n2, current_class):
     else:
         return "h-100 position-absolute left-0 col-12 top-100-percent"    
     
+@app.callback(
+    Output("popup5", "className"),
+    Input("toggle-button5", "n_clicks"),
+    Input("toggle-button-close5", "n_clicks"),
+    State("popup5", "className")
+)
+def toggle_class4(n1, n2, current_class):
+    if "top-100-percent" in current_class:
+        return "h-100 position-absolute left-0 col-12 top-0-pixel"
+    else:
+        return "h-100 position-absolute left-0 col-12 top-100-percent"    
+    
 def process_branchen_data(df, entity, start_date, end_date):
     time_transaction_data = df[(df['date'] >= pd.to_datetime(start_date)) & (df['date'] <= pd.to_datetime(end_date))]
     branchen_transaktionen = time_transaction_data[time_transaction_data['mcc'] == int(entity)]
@@ -442,6 +475,9 @@ def process_branchen_data(df, entity, start_date, end_date):
     return umsatz_Jahr_Merchant, umsatz_pro_merchant, branchen_transaktionen
 
 def create_kpi_cards(kpis):
+    blues_colors = [
+        "#deebf7", "#9ecae1", "#6baed6"
+    ]
     return [
         dbc.Col([
             dbc.Card([
@@ -449,9 +485,9 @@ def create_kpi_cards(kpis):
                     html.H5(value),
                     html.P(key),
                 ], className="kpi-card-body"),
-            ], color="success", outline=True)
-        ], width=5, className="kpi-card p-2")
-        for kpi in kpis
+            ], style={"backgroundColor": blues_colors[i % len(blues_colors)]})
+        ], width=12, className="kpi-card")
+        for i, kpi in enumerate(kpis)
         for key, value in kpi.items()
     ]
 
@@ -483,97 +519,6 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
     df['date'] = pd.to_datetime(df['date'])
 
     if category == 'Branchen' and entity is not None:
-        
-        # =======================
-        
-        persona_cards = dbc.Row([
-
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardBody([
-                        html.H6("Durchschnittsalter der Kunden", className="card-title"),
-                        
-                        # Zahl
-                        html.P(
-                            f"{get_average_age_in_branche(start_date_first, end_date_first, entity)} Jahre",
-                            className="fs-4 fw-bold"
-                        ),
-                        
-
-                        # Histogramm darunter
-                        dcc.Graph(
-                            figure=create_age_histogram(start_date_first, end_date_first, entity),
-                            config={"displayModeBar": False},
-                            style={"height": "200px"},
-                            className="w-100"
-                        ),
-
-                        html.Small("Hinweis: Altersverteilung aller Kunden, die im Zeitraum in dieser Branche aktiv waren.")
-                    ])
-                ], className="h-100")
-            ], md=4, sm=12, className="mb-3"),
-            dbc.Col([
-                    dbc.Card([
-                        dbc.CardBody([
-                            html.H6("Durchschnittliches Einkommen ($)", className="card-title"),
-                            html.P(
-                                avg_income := calculate_avg_income_for_branche(entity, df),
-                                className="card-text fw-bold"
-                            ),
-                                    income_category_bar_component(avg_income, start_date_first, end_date_first, entity)
-
-                                ])
-                            ], className="h-100")
-            ], md=4, sm=12, className="mb-3"),
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardBody([
-                        html.H6("Ø Monatsausgaben pro Kunde in dieser Branche (im ausgewählten Zeitraum)", className="card-title"),
-                        html.P(
-                            calculate_mean_monthly_spending_per_customer(entity, df),
-                            className="card-text"
-                        ),
-                        dcc.Graph(
-                            figure=get_customer_spending_distribution_pie_chart(start_date_first, end_date_first, entity, df),
-                            config={"displayModeBar": False},
-                            style={"height": "200px"},
-                            className="w-100"
-                        ),
-                        html.Small("Hinweis: Nur Kunden berücksichtigt, die im gewählten Zeitraum in dieser Branche aktiv waren. Im Kreisdiagramm: Verteilung ihrer Gesamtausgaben über alle Branchen.")
-                    ])
-                ], className="h-100")
-            ], md=4, sm=12, className="mb-3"),
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardBody([
-                        html.H6("Kartennutzung nach Typ & Marke", className="card-title"),
-                        dcc.Graph(figure=plot_card_type_distribution_by_brand(entity, df), style={"height": "200px"}, className="w-100"),
-                    ])
-                ], className="h-100")
-            ], md=4, sm=12, className="mb-3"),
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardBody([
-                        html.H6("Geschlechterverteilung", className="mb-3"),
-                        dcc.Graph(figure=get_dominant_gender_in_branche(entity, df), config={"displayModeBar": False}, style={"height": "200px"}, className="w-100"),
-                    ])
-                ], className="h-100")
-            ], md=4, sm=12, className="mb-3"),
-                        
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardBody([
-                        html.H6("Durchschnittlicher Credit Score", className="card-title"),
-                        dcc.Graph(
-                            figure=erstelle_kredit_score_anzeige(get_average_credit_score_in_branche(entity, df)),
-                            config={"displayModeBar": False},
-                            style={"height": "200px"},
-                            className="w-100"
-                        )
-                    ])
-                ], className="h-100")
-            ], md=4, sm=12, className="mb-3"),
-        ], className="g-2")
         
         # =======================
         
@@ -702,29 +647,19 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         ]
 
         return [
-                dbc.Col(create_kpi_cards(kpis), md=5, sm=12, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
+                dbc.Col(create_kpi_cards(kpis), md=3, sm=12, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start gap-2 overflow-y-scroll"),
                 dbc.Col([
                     dbc.Col([
                         dbc.Card([
                             dbc.CardHeader(
                                 dbc.Tabs([
-                                    dbc.Tab(dcc.Graph(figure=fig1, id="card-content", className="card-text w-100"), label="Top 5", tab_id="tab-1", style={"height": "400px"}),
-                                    dbc.Tab(dcc.Graph(figure=fig2, id="card-content", className="card-text w-100"), label="Flop 5", tab_id="tab-2", style={"height": "400px"}),
+                                    dbc.Tab(dcc.Graph(figure=fig1, id="card-content", className="card-text w-100"), label="Top 5", tab_id="tab-1"),
+                                    dbc.Tab(dcc.Graph(figure=fig2, id="card-content", className="card-text w-100"), label="Flop 5", tab_id="tab-2"),
                                 ], active_tab="tab-1"),
                             ),
-                        ]),
+                        ], style={"background-color": "#FFFFFF"}),
                     ], width=12, className="detail-view-right-section-1"),
-                    # dbc.Col([
-                    #     html.Div("Persona"),
-                        
-                    # ], width=12, className="detail-view-right-section-2"),
-                ], md=5, sm=12, className="detail-view-right-section"),
-           
-            
-                dbc.Col([
-                    persona_cards,
-                ], width=12, className="d-flex flex-column gap-3 p-3 pb-5"),
-            
+                ], md=9, sm=12, className="detail-view-right-section"),
         ]
 
     if category == 'Unternehmen' and entity is not None:
@@ -869,7 +804,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
             dbc.Col([
                 dbc.Col(
                     create_kpi_cards(kpis)
-                ,width=12, className="detail-view-kpis d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
+                ,width=12, className="detail-view-kpis d-flex flex-wrap justify-content-start align-content-start gap-2 overflow-y-scroll"),
                 dbc.Col([
                     dbc.Col([
                          dbc.Col([
@@ -880,7 +815,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
                         ], width=6),
                     ], width=12, id="gesamtkapitalisierung_container", className="d-flex justify-content-between align-content-start p-3 overflow-y-scroll"),
                 ], width=12)
-            ], md=5, sm=12, className="detail-view-left-section" ),
+            ], md=6, sm=12, className="detail-view-left-section" ),
             dbc.Col([
                 dbc.Col([
                     dcc.Graph(figure=bar_umsatz_pro_monat, className="w-100"),
@@ -888,7 +823,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
                 dbc.Col([
                     dcc.Graph(figure=fig_bar_chart, className="w-100"),
                 ], width=12, className="detail-view-right-section-2"),
-            ], md=5, sm=12, className="detail-view-right-section")
+            ], md=6, sm=12, className="detail-view-right-section")
         ]
     
 
@@ -937,7 +872,7 @@ def render_detailview2(category, timed_branchen_data, timed_unternehmen_data):
                 html.Td(row[col]) for col, _ in columns
             ]) for _, row in kpi_df.iterrows()
         ])
-    ], className="table table-striped table-hover table-bordered w-100")
+    ], className="table table-hover table-bordered w-100")
 
     return html.Div([
         html.Div("Unternehmens-KPIs je Händler", className="fw-bold mb-2"),
@@ -997,9 +932,127 @@ def render_detailview4(category, timed_branchen_data, timed_unternehmen_data):
 
 
 @app.callback(
+    Output("detail-view5", "children"),
+    Input("category_dropdown", "value"),
+    Input('timed_transaction_data', 'data'),
+    Input('timed_branchen_transaction_data', 'data'),
+    Input('timed_unternehmen_transaction_data', 'data'),
+    Input("entity_dropdown", "value"),
+    Input("date-range-start", "start_date"),
+    Input("date-range-start", "end_date"),
+)
+def render_detailview5(category, timed_transaction_data, timed_branchen_data, timed_unternehmen_data, entity, start_date_first, end_date_first):
+    
+    if timed_transaction_data is None:
+        return dbc.Alert("Keine Transaktionsdaten verfügbar.", color="warning")
+
+    df = pd.DataFrame(timed_transaction_data)
+    timed_unternehmen_data = pd.DataFrame(timed_unternehmen_data)
+    timed_branchen_data = pd.DataFrame(timed_branchen_data)
+    df['date'] = pd.to_datetime(df['date'])
+    
+    if category == 'Branchen' and timed_branchen_data is not None:
+        
+        # =======================
+        
+        persona_cards = dbc.Row([
+
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Durchschnittsalter der Kunden", className="card-title"),
+                        
+                        # Zahl
+                        html.P(
+                            f"{get_average_age_in_branche(start_date_first, end_date_first, entity)} Jahre",
+                            className="fs-4 fw-bold"
+                        ),
+                        
+
+                        # Histogramm darunter
+                        dcc.Graph(
+                            figure=create_age_histogram(start_date_first, end_date_first, entity),
+                            config={"displayModeBar": False},
+                            style={"height": "200px"},
+                            className="w-100"
+                        ),
+
+                        html.P("Hinweis: Altersverteilung aller Kunden, die im Zeitraum in dieser Branche aktiv waren.", className="info")
+                    ], className="persona-card")
+                ], className="h-100")
+            ], md=4, sm=12, className="mb-3"),
+            dbc.Col([
+                    dbc.Card([
+                        dbc.CardBody([
+                            html.H6("Durchschnittliches Einkommen ($)", className="card-title"),
+                            html.P(
+                                avg_income := calculate_avg_income_for_branche(entity, df),
+                                className="card-text fw-bold"
+                            ),
+                                    income_category_bar_component(avg_income, start_date_first, end_date_first, entity)
+
+                        ], className="persona-card")
+                    ], className="h-100")
+            ], md=4, sm=12, className="mb-3"),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Ø Monatsausgaben pro Kunde in dieser Branche (im ausgewählten Zeitraum)", className="card-title"),
+                        html.P(
+                            calculate_mean_monthly_spending_per_customer(entity, df),
+                            className="card-text"
+                        ),
+                        dcc.Graph(
+                            figure=get_customer_spending_distribution_pie_chart(start_date_first, end_date_first, entity, df),
+                            config={"displayModeBar": False},
+                            style={"height": "200px"},
+                            className="w-100"
+                        ),
+                        html.P("Hinweis: Nur Kunden berücksichtigt, die im gewählten Zeitraum in dieser Branche aktiv waren. Im Kreisdiagramm: Verteilung ihrer Gesamtausgaben über alle Branchen.", className="info")
+                    ], className="persona-card")
+                ], className="h-100")
+            ], md=4, sm=12, className="mb-3"),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Kartennutzung nach Typ & Marke", className="card-title"),
+                        dcc.Graph(figure=plot_card_type_distribution_by_brand(entity, df), style={"height": "200px"}, className="w-100"),
+                    ], className="persona-card")
+                ], className="h-100")
+            ], md=4, sm=12, className="mb-3"),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Geschlechterverteilung", className="card-title"),
+                        dcc.Graph(figure=get_dominant_gender_in_branche(entity, df), config={"displayModeBar": False}, style={"height": "200px"}, className="w-100"),
+                    ], className="persona-card")
+                ], className="h-100")
+            ], md=4, sm=12, className="mb-3"),
+                        
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Durchschnittlicher Credit Score", className="card-title"),
+                        dcc.Graph(
+                            figure=erstelle_kredit_score_anzeige(get_average_credit_score_in_branche(entity, df)),
+                            config={"displayModeBar": False},
+                            style={"height": "200px"},
+                            className="w-100"
+                        )
+                    ], className="persona-card")
+                ], className="h-100")
+            ], md=4, sm=12, className="mb-3"),
+        ], className="g-2")
+    
+        return dbc.Col([
+                    persona_cards,
+                ], width=12, className="d-flex flex-column gap-3 p-3 pb-5")
+
+@app.callback(
     Output("branche_title", "children"),
     Output("branche_title2", "children"),
     Output("branche_title4", "children"),
+    Output("branche_title5", "children"),
     Input("category_dropdown", "value"),
     Input("entity_dropdown", "value"),
 )
@@ -1014,11 +1067,11 @@ def update_detailView(category, entity):
         else:
             value = f"{entity} – Beschreibung nicht gefunden"
         # Gib immer ein Tupel mit drei gleichen Strings zurück!
-        return value, value, value
+        return value, value, value, value
     if category == 'Unternehmen' and entity is not None:
         value = f"Unternehmensprofil: {entity}"
-        return value, value, value
-    return "", "", ""
+        return value, value, value, value
+    return "", "", "", ""
 
 def calculate_avg_income_for_branche(mcc_code, timed_transaction_data):
    
@@ -1341,6 +1394,9 @@ def get_customer_spending_distribution_pie_chart(start_date, end_date, current_m
             f"Sonstiges: Ø Monatsausgabe: {sonstiges_amount:,.2f} $ ({sonstiges_amount / total_avg_spending * 100:.2f} %)"
         )
         ids.append("Sonstiges")
+    
+    num_segments = len(values)  # oder len(labels)
+    blues_colors = px.colors.sample_colorscale("Blues", [i/(num_segments-1) for i in range(num_segments)])
 
     fig = go.Figure(
         data=[go.Pie(
@@ -1351,18 +1407,18 @@ def get_customer_spending_distribution_pie_chart(start_date, end_date, current_m
             hoverinfo='text',
             hole=0.4,
             customdata=ids,
-            sort=False  # Sehr wichtig → manuell sortiert!
+            sort=False,  
+            marker=dict(colors=blues_colors)
         )]
     )
 
     fig.update_layout(
-    title="Ausgabenverteilung dieser Kunden (alle Branchen, im ausgewählten Zeitraum)",
-    template='plotly_white',
-    showlegend=False,
-    dragmode='zoom',
-    hovermode='closest',
-    margin=dict(t=50, b=20, l=20, r=20)
-)
+        template='plotly_white',
+        showlegend=False,
+        dragmode='zoom',
+        hovermode='closest',
+        margin=dict(t=50, b=20, l=20, r=20),
+    )
 
 
     print(f"DEBUG: Ø Monatsausgaben pro Kunde (nur aktiv in {current_mcc_code}): {total_avg_spending:.2f} $")
@@ -1419,8 +1475,7 @@ def get_dominant_gender_in_branche(mcc_code, timed_transaction_data, show_full_d
     fig = px.pie(
         names=list(percents.keys()),
         values=list(percents.values()),
-        title="Geschlechterverteilung",
-        color_discrete_sequence=px.colors.qualitative.Pastel
+        color_discrete_sequence=blues_dark_to_light
     )
     fig.update_traces(textposition='inside', textinfo='percent+label')
     return fig
@@ -1503,7 +1558,6 @@ def create_age_histogram(start_date, end_date, mcc_code):
         matched_users,
         x='age',
         nbins=20,
-        title='Altersverteilung der Kunden',
         labels={'age': 'Alter (Jahre)'}
     )
 
@@ -1565,7 +1619,6 @@ def erstelle_kredit_score_anzeige(kredit_score_wert):
         mode = "gauge+number",
         value = kredit_score_wert,
         domain = {'x': [0, 1], 'y': [0, 1]},
-        title = {'text': "Kredit-Score"},
         gauge = {
             'axis': {'range': [300, 850]},
             'bar': {'color': "darkblue"},
@@ -1645,8 +1698,8 @@ def plot_card_type_distribution_by_brand(mcc_code, timed_transaction_data , show
         color='card_type',       # Farbe nach Kartentyp
         orientation='h',         # Horizontal
         text_auto='.2s' if not show_percentage else None,  # Zeige Werte bei Anzahl
-        title='Kartennutzung nach Typ & Marke' + (' (in %)' if show_percentage else ''),
-        labels={'card_type': 'Kartentyp', 'card_brand': 'Kartenmarke', y_val: y_title}
+        labels={'card_type': 'Kartentyp', 'card_brand': 'Kartenmarke', y_val: y_title},
+        color_discrete_sequence=blues_dark_to_light
     )
 
     # Layout-Einstellungen
