@@ -1,10 +1,9 @@
+# Imports
 import json
 import locale
 from urllib.request import urlopen
 from dash import Dash, State, html, dash_table, Input, Output, callback, dcc
 import pandas as pd
-import plotly.express as px
-from dash import Dash, dcc, html, Input, Output
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import re
@@ -959,6 +958,55 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
                     ], width=6),
                 ], width=12, className="detail-view-right-section-4 d-flex"),
             ], md=9, sm=12, className="detail-view-right-section")
+        ]
+    if category == 'Unternehmen':
+
+        kpis = [
+            {'Marktkapitalisierung': 100000000},
+            {'durchschn. Transaktionshöhe': 380.20},
+            {'durchschn. Transaktionen pro Käufer': 100000000},
+            {'Umsatzwachstum (%)': 87.32},
+            {'Consumer Money Spent (%)': 100000000},
+            {'Unique Customers': 2102},
+        ]
+
+        return [
+            dbc.Col([
+                dbc.Col([
+                    dbc.Card([
+                        dbc.CardBody(
+                            [
+                                html.H5(value),
+                                html.P(
+                                    key
+                                ),
+                            ], className="kpi-card-body"
+                        ),         
+                    ], color="success", outline=True)
+                ],width=5, className="kpi-card p-2")
+                for kpi in kpis
+                for key, value in kpi.items()
+            ], width=5, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
+            dbc.Col([
+                dbc.Col([
+                    dbc.Card(
+                        [
+                            dbc.CardHeader(
+                                dbc.Tabs(
+                                    [
+                                        dbc.Tab("erster Tab Content",label="Top 5", tab_id="tab-3"),
+                                        dbc.Tab("erster Tab Content",label="Flop 5", tab_id="tab-4"),
+                                    ],
+                                    active_tab="tab-3",
+                                )
+                            ),
+                        ]
+                    ),
+                ], width=12, className="detail-view-right-section-1"),
+                dbc.Col([
+                    html.Div("Persona")
+                ], width=12, className="detail-view-right-section-2"),
+            ], width=7, className="detail-view-right-section")
         ]
     
 
