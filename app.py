@@ -1130,11 +1130,11 @@ def render_detailview4(category, timed_branchen_data, timed_unternehmen_data):
 
         table = html.Table([
                     html.Thead([
-                        html.Tr([html.Th(name, style={"textAlign": "right"}) for _, name in columns])
+                        html.Tr([html.Th(name) for _, name in columns])
                     ]),
                     html.Tbody([
                         html.Tr([
-                            html.Td(row[col], style={"textAlign": "right"}) for col, _ in columns
+                            html.Td(row[col]) for col, _ in columns
                         ]) for _, row in kpi_df.iterrows()
                     ])
                 ], className="table table-hover table-bordered w-100")

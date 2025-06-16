@@ -323,13 +323,11 @@ table.table thead th {
 }
 
 /* Gerade Zeilen */
-table.table tbody tr:nth-child(even) {
-    background-color: #deebf7 !important;
+.table.table-hover.table-bordered.w-100 tbody tr:nth-child(even) td {
+    background-color: #e3eef9 !important;
 }
-
-/* Ungerade Zeilen */
-table.table tbody tr:nth-child(odd) {
-    background-color: #9ecae1 !important;
+.table.table-hover.table-bordered.w-100 tbody tr:nth-child(odd) td {
+    background-color: #c6dbef !important;
 }
 
 /* Optional: Hover-Effekt */
@@ -338,6 +336,10 @@ table.table tbody tr:hover {
     color: #fff;
     transition: background 0.2s;
 } 
+
+table.table td, table.table th {
+    text-align: right;
+}
 
 @media (max-width: 768px) {
   .detail-view-left-section, .detail-view-right-section {
