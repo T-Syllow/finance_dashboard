@@ -320,7 +320,7 @@ def create_merchant_card(merchant_id, total_revenue, transaction_count, standort
             dbc.CardBody([
                 html.H5("Unternehmensprofil", className="card-title"),
                 html.P(f"Branche: {branchenbeschreibung}", className="card-text"),
-                html.P(f"Gesamtumsatz: {total_revenue:.2f} €", className="card-text"),
+                html.P(f"Gesamtumsatz: {total_revenue:.2f} $", className="card-text"),
                 html.P(f"Marktanteil: {marktanteil_display}", className="card-text"),
                 html.P(f"Anzahl Transaktionen: {transaction_count}", className="card-text"),
                 html.P("Niederlassungen: " + str(len(standorte)), className="card-text"),
@@ -402,7 +402,7 @@ def handle_unternehmen(df, entity_value, unternehmen_transaktionen):
         y='merchant_state',
         orientation='h',  # Horizontaler Bar-Chart
         title='Top 10 Bundesstaaten nach Umsatz',
-        labels={'total_revenue': 'Umsatz (€)', 'merchant_state': 'Bundesstaat'},
+        labels={'total_revenue': 'Umsatz ($)', 'merchant_state': 'Bundesstaat'},
         text_auto=True,
         color='merchant_state',
         color_discrete_sequence=blues_dark_to_light,
@@ -413,7 +413,7 @@ def handle_unternehmen(df, entity_value, unternehmen_transaktionen):
 
     # Layout des Bar-Charts anpassen
     fig_bar_chart.update_layout(
-        xaxis_title="Umsatz (€)",
+        xaxis_title="Umsatz ($)",
         yaxis_title="Bundesstaat",
         template="plotly_white",
     )
@@ -443,7 +443,7 @@ def handle_branchen(df, entity_value):
 
     top_content = [
         dbc.ListGroupItem(
-            f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} €",
+            f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} $",
             className="ranklist_item"
         )
         for _, row in top_5.iterrows()
@@ -451,7 +451,7 @@ def handle_branchen(df, entity_value):
 
     flop_content = [
         dbc.ListGroupItem(
-            f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} €",
+            f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} $",
             className="ranklist_item"
         )
         for _, row in flop_5.iterrows()
@@ -609,7 +609,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
          #Marktkapitalisierung berechnet
 
         Marktkapitalisierung = umsatz_pro_merchant["gesamtumsatz"].sum()  
-        Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
 
         # =====================================================================================
 
@@ -631,7 +631,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
         #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
         DurchschnittTransaktionshöhe = branchen_transaktionen['amount'].mean()
-        DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} € ".replace(",", "X").replace(".", ",").replace("X", ".")
+        DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} $ ".replace(",", "X").replace(".", ",").replace("X", ".")
 
         # =====================================================================================
         
@@ -660,7 +660,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         #Marktkapitalisierung berechnet
 
         Marktkapitalisierung = umsatz_pro_merchant["gesamtumsatz"].sum()  
-        Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
         print("Marktkapitalisierung: ", Marktkapitalisierung)
 
         # =====================================================================================
@@ -686,7 +686,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
         #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
         DurchschnittTransaktionshöhe = branchen_transaktionen['amount'].mean()
-        DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} € ".replace(",", "X").replace(".", ",").replace("X", ".")
+        DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} $ ".replace(",", "X").replace(".", ",").replace("X", ".")
 
         print("Durchschnittliche Transaktionshöhe: ", DurchschnittTransaktionshöhe)
 
@@ -755,14 +755,14 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
                 x='Jahr',
                 y='Umsatz',
                 title='Umsatz pro Jahr',
-                labels={'Jahr': 'Jahr', 'Umsatz': 'Umsatz (€)'},
+                labels={'Jahr': 'Jahr', 'Umsatz': 'Umsatz ($)'},
                 text_auto=True,
                 color='Jahr',
                 color_discrete_sequence=blues_dark_to_light_12
             )
             umsatz_pro_jahr_chart.update_layout(
                 xaxis_title="Jahr",
-                yaxis_title="Umsatz (€)",
+                yaxis_title="Umsatz ($)",
                 template="plotly_white",
                 showlegend=False
             )
@@ -814,23 +814,23 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
             x='month',
             y='amount',
             title='Umsatz je Monat',
-            labels={'month': 'Monat', 'amount': 'Umsatz (€)'},
+            labels={'month': 'Monat', 'amount': 'Umsatz ($)'},
             text_auto=True
         )
 
         # Formatierung des Bar-Charts
         bar_umsatz_pro_monat.update_layout(
             xaxis_title="Monat",
-            yaxis_title="Umsatz (€)",
+            yaxis_title="Umsatz ($)",
             template="plotly_white"
         )
 
         # Weitere Berechnungen und KPIs
         Marktkapitalisierung = unternehmen_transaktionen["amount"].sum()
-        MarktkapitalisierungDisplay = f"{Marktkapitalisierung:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        MarktkapitalisierungDisplay = f"{Marktkapitalisierung:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
 
         DurchschnittTransaktionshöhe = unternehmen_transaktionen['amount'].mean()
-        DurchschnittTransaktionshöheDisplay = f"{DurchschnittTransaktionshöhe:,.2f} € ".replace(",", "X").replace(".", ",").replace("X", ".")
+        DurchschnittTransaktionshöheDisplay = f"{DurchschnittTransaktionshöhe:,.2f} $ ".replace(",", "X").replace(".", ",").replace("X", ".")
 
         GesamtTransaktionen = unternehmen_transaktionen["merchant_id"].count()
         EinzigartigeKäufer = unternehmen_transaktionen["client_id"].nunique()
@@ -846,7 +846,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         ConsumerMoneySpentDisplay = f"{ConsumerMoneySpent:,.2f} % ".replace(",", "X").replace(".", ",").replace("X", ".")
 
         CustomerLifetimeValue = Durchschnitt_gesamt / EinzigartigeKäufer * 100
-        CustomerLifetimeValueDisplay = f"{CustomerLifetimeValue:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        CustomerLifetimeValueDisplay = f"{CustomerLifetimeValue:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
 
         bundesstaat_transaktionen = df.groupby('merchant_state')['merchant_id'].count().reset_index(name='transaction_count')
 
@@ -909,10 +909,10 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         
         #2. Kreisdiagramm 
         fig_pie_2 = px.pie(
-            names=["bis 50€", "50€ - 200€", "über 200€"],
+            names=["bis 50$", "50$ - 200$", "über 200$"],
             values=[ErsterPreisbereich, ZweiterPreisbereich, DritterPreisbereich],
             title='Anteil der Transaktionshöhe nach Bereichen',
-            labels = ['bis 50€', '50€ - 200€', 'über 200€'],
+            labels = ['bis 50$', '50$ - 200$', 'über 200$'],
             color_discrete_sequence=blues_dark_to_light
         )
 
@@ -1033,8 +1033,8 @@ def render_detailview2(category, timed_branchen_data, timed_unternehmen_data):
     kpi_df["durchschn_transaktionen_pro_kaeufer"] = kpi_df["anzahl_transaktionen"] / kpi_df["einzigartige_kaeufer"]
 
     # Formatierungen
-    kpi_df["gesamtumsatz"] = kpi_df["gesamtumsatz"].map(lambda x: f"{x:,.2f} €".replace(",", "X").replace(".", ",").replace("X", "."))
-    kpi_df["durchschn_transaktionshoehe"] = kpi_df["durchschn_transaktionshoehe"].map(lambda x: f"{x:,.2f} €".replace(",", "X").replace(".", ",").replace("X", "."))
+    kpi_df["gesamtumsatz"] = kpi_df["gesamtumsatz"].map(lambda x: f"{x:,.2f} $".replace(",", "X").replace(".", ",").replace("X", "."))
+    kpi_df["durchschn_transaktionshoehe"] = kpi_df["durchschn_transaktionshoehe"].map(lambda x: f"{x:,.2f} $".replace(",", "X").replace(".", ",").replace("X", "."))
     kpi_df["durchschn_transaktionen_pro_kaeufer"] = kpi_df["durchschn_transaktionen_pro_kaeufer"].map(lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
     columns = [
@@ -1084,8 +1084,8 @@ def render_detailview4(category, timed_branchen_data, timed_unternehmen_data):
         kpi_df["durchschn_transaktionen_pro_kaeufer"] = kpi_df["anzahl_transaktionen"] / kpi_df["einzigartige_kaeufer"]
 
         # Formatierungen
-        kpi_df["gesamtumsatz"] = kpi_df["gesamtumsatz"].map(lambda x: f"{x:,.2f} €".replace(",", "X").replace(".", ",").replace("X", "."))
-        kpi_df["durchschn_transaktionshoehe"] = kpi_df["durchschn_transaktionshoehe"].map(lambda x: f"{x:,.2f} €".replace(",", "X").replace(".", ",").replace("X", "."))
+        kpi_df["gesamtumsatz"] = kpi_df["gesamtumsatz"].map(lambda x: f"{x:,.2f} $".replace(",", "X").replace(".", ",").replace("X", "."))
+        kpi_df["durchschn_transaktionshoehe"] = kpi_df["durchschn_transaktionshoehe"].map(lambda x: f"{x:,.2f} $".replace(",", "X").replace(".", ",").replace("X", "."))
         kpi_df["durchschn_transaktionen_pro_kaeufer"] = kpi_df["durchschn_transaktionen_pro_kaeufer"].map(lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
         columns = [
@@ -1293,7 +1293,7 @@ def income_category_bar_component(avg_income_str):
     # Zahl aus dem String holen (z. B. "12345.67 $")
     income_value = float(avg_income_str.replace(" $", "").replace(",", ""))
 
-    # Skala von 0 bis 300.000 €
+    # Skala von 0 bis 300.000$
     scale_min = 0
     scale_max = 300000
 
