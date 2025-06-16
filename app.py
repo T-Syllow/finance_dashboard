@@ -199,7 +199,7 @@ app.layout = dbc.Container([
     Input('date-range-start', 'end_date'),
 )
 def update_timed_transaction_data(start_date, end_date):
-    df = transaction_data.copy()
+    df = transaction_data
     df['date'] = pd.to_datetime(df['date'])
     filtered = df[(df['date'] >= pd.to_datetime(start_date)) & (df['date'] <= pd.to_datetime(end_date))]
     return filtered.to_dict('records')
@@ -216,7 +216,7 @@ def update_timed_branchen_transaction_data(start_date, end_date, category, entit
         if entity is None:
             return []  # Keine Daten, wenn keine Branche ausgewählt ist
 
-        df = transaction_data.copy()
+        df = transaction_data
         df['date'] = pd.to_datetime(df['date'])
 
         # Filtere die Daten basierend auf dem Zeitraum und der Branche (MCC)
@@ -240,7 +240,7 @@ def update_timed_unternehmen_transaction_data(start_date, end_date, category, en
         if entity is None:
             return []  # Keine Daten, wenn keine Branche ausgewählt ist
 
-        df = transaction_data.copy()
+        df = transaction_data
         df['date'] = pd.to_datetime(df['date'])
 
         # Filtere die Daten basierend auf dem Zeitraum und der Branche (MCC)
@@ -313,7 +313,7 @@ def update_entity_dropdown(category):
         return categories
     return merchants.tolist()
 
-def create_merchant_card(merchant_id, total_revenue, transaction_count, standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart):
+def create_merchant_card(merchant_id, total_revenue, transaction_count, standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart, online_umsatz_anteil_display):
     return [
         dbc.Card([
             dbc.CardHeader(f"Händler-ID: {merchant_id}", style={"backgroundColor": "#3182bd", "color": "white"}),
@@ -323,7 +323,9 @@ def create_merchant_card(merchant_id, total_revenue, transaction_count, standort
                 html.P(f"Gesamtumsatz: {total_revenue:.2f} $", className="card-text"),
                 html.P(f"Marktanteil: {marktanteil_display}", className="card-text"),
                 html.P(f"Anzahl Transaktionen: {transaction_count}", className="card-text"),
+                html.P(f"Umsatzanteil der Onlinetransaktionen:  {online_umsatz_anteil_display}", className="card-text"),
                 html.P("Niederlassungen: " + str(len(standorte)), className="card-text"),
+              
             ], style={"backgroundColor": "#deebf7"})
         ], color="light", outline=True, style={"margin": "10px 0"}),
         dbc.Col([
@@ -387,6 +389,16 @@ def handle_unternehmen(df, entity_value, unternehmen_transaktionen):
     else:
         marktanteil_display = "n/a"
 
+    # Online Umsatzanteil berechnen
+    online_transaktionen = df_merchant[df_merchant['merchant_city'].str.upper() == 'ONLINE']
+    online_umsatz = online_transaktionen['amount'].sum()
+    if total_revenue > 0:
+        online_umsatz_anteil = (online_umsatz / total_revenue) * 100
+        online_umsatz_anteil_display = f"{online_umsatz_anteil:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
+    else:
+        online_umsatz_anteil_display = "n/a"
+
+
     top_10_bundesstaaten = (
         unternehmen_transaktionen.groupby('merchant_state')['amount']
         .sum()
@@ -404,8 +416,8 @@ def handle_unternehmen(df, entity_value, unternehmen_transaktionen):
         title='Top 10 Bundesstaaten nach Umsatz',
         labels={'total_revenue': 'Umsatz ($)', 'merchant_state': 'Bundesstaat'},
         text_auto=True,
-        color='merchant_state',
-        color_discrete_sequence=blues_dark_to_light,
+        color=None,
+        color_discrete_sequence=['#1f77b4'],
         category_orders={
             "merchant_state": list(top_10_bundesstaaten.sort_values("total_revenue", ascending=False)["merchant_state"])
         }
@@ -418,7 +430,7 @@ def handle_unternehmen(df, entity_value, unternehmen_transaktionen):
         template="plotly_white",
     )
 
-    return create_merchant_card(merchant_id, total_revenue, len(df_merchant), standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart)
+    return create_merchant_card(merchant_id, total_revenue, len(df_merchant), standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart, online_umsatz_anteil_display)
 
 def handle_branchen(df, entity_value):
     df_branche = df[df['mcc'] == int(entity_value)]
@@ -650,6 +662,18 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         ConsumerMoneySpent= (DurchschnittBranche / Durchschnitt_gesamt) * 100
         ConsumerMoneySpent = f"{ConsumerMoneySpent:,.2f} % ".replace(",", "X").replace(".", ",").replace("X", ".")
 
+        # =================== Online Umsatzanteil =====================
+
+        online_transaktionen = branchen_transaktionen[branchen_transaktionen['merchant_city'].str.upper() == 'ONLINE']
+        online_umsatz = online_transaktionen['amount'].sum()
+        gesamt_umsatz = branchen_transaktionen['amount'].sum()
+
+        if gesamt_umsatz > 0:
+            online_umsatz_anteil = (online_umsatz / gesamt_umsatz) * 100
+            online_umsatz_anteil_display = f"{online_umsatz_anteil:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
+        else:
+            online_umsatz_anteil_display = "n/a"
+
         # =====================================================================================
 
         #Unique Customers
@@ -774,6 +798,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
                 {'Umsatzwachstum (Jahresvergleich)': umsatzwachstum_display},  # Umsatzwachstum dynamisch berechnet
                 {'Consumer Money Spent (%)': ConsumerMoneySpent},  # Berechnet zunächst die durchschn. Menge an Geld, die ein User im Schnitt im ausgewählten Zeitraum ausgibt. Dann berechnet wie viel er für die Branche im durchschnitt ausgibt. und setzt es anschließend ins Verhältnis! ==> %
                 {'Käufer':  EinzigartigeKäufer}, # Wie viele einzigartige User haben im ausgewählten Zeitrsaum bei der Branche eingekauft?
+                {'Online Umsatzanteil (%)': online_umsatz_anteil_display}, #Anteil aller online Transaktionen am Gesamtumsatz der Branche
         ]
 
         return [
@@ -849,6 +874,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         CustomerLifetimeValueDisplay = f"{CustomerLifetimeValue:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
 
         bundesstaat_transaktionen = df.groupby('merchant_state')['merchant_id'].count().reset_index(name='transaction_count')
+
 
         # Sortiere die Bundesstaaten nach der Anzahl der Transaktionen und wähle die Top 3 aus
         top_3_bundesstaaten = bundesstaat_transaktionen.nlargest(3, 'transaction_count')
@@ -1032,6 +1058,10 @@ def render_detailview2(category, timed_branchen_data, timed_unternehmen_data):
     ).reset_index()
     kpi_df["durchschn_transaktionen_pro_kaeufer"] = kpi_df["anzahl_transaktionen"] / kpi_df["einzigartige_kaeufer"]
 
+
+    #Sortiere nach Umsatz (absteigend)
+    kpi_df = kpi_df.sort_values(by="gesamtumsatz", ascending=False)
+
     # Formatierungen
     kpi_df["gesamtumsatz"] = kpi_df["gesamtumsatz"].map(lambda x: f"{x:,.2f} $".replace(",", "X").replace(".", ",").replace("X", "."))
     kpi_df["durchschn_transaktionshoehe"] = kpi_df["durchschn_transaktionshoehe"].map(lambda x: f"{x:,.2f} $".replace(",", "X").replace(".", ",").replace("X", "."))
@@ -1048,11 +1078,11 @@ def render_detailview2(category, timed_branchen_data, timed_unternehmen_data):
 
     table = html.Table([
         html.Thead([
-            html.Tr([html.Th(name) for _, name in columns])
+            html.Tr([html.Th(name, style={"textAlign":"right"}) for _, name in columns])
         ]),
         html.Tbody([
             html.Tr([
-                html.Td(row[col]) for col, _ in columns
+                html.Td(row[col], style={"textAlign":"right"}) for col, _ in columns
             ]) for _, row in kpi_df.iterrows()
         ])
     ], className="table table-hover table-bordered w-100")
@@ -1082,7 +1112,8 @@ def render_detailview4(category, timed_branchen_data, timed_unternehmen_data):
             einzigartige_kaeufer=("client_id", "nunique")
         ).reset_index()
         kpi_df["durchschn_transaktionen_pro_kaeufer"] = kpi_df["anzahl_transaktionen"] / kpi_df["einzigartige_kaeufer"]
-
+        #Sortiere nach Umsatz (absteigend)
+        kpi_df = kpi_df.sort_values(by="gesamtumsatz", ascending=False)
         # Formatierungen
         kpi_df["gesamtumsatz"] = kpi_df["gesamtumsatz"].map(lambda x: f"{x:,.2f} $".replace(",", "X").replace(".", ",").replace("X", "."))
         kpi_df["durchschn_transaktionshoehe"] = kpi_df["durchschn_transaktionshoehe"].map(lambda x: f"{x:,.2f} $".replace(",", "X").replace(".", ",").replace("X", "."))
@@ -1098,15 +1129,15 @@ def render_detailview4(category, timed_branchen_data, timed_unternehmen_data):
         ]
 
         table = html.Table([
-            html.Thead([
-                html.Tr([html.Th(name) for _, name in columns])
-            ]),
-            html.Tbody([
-                html.Tr([
-                    html.Td(row[col]) for col, _ in columns
-                ]) for _, row in kpi_df.iterrows()
-            ])
-        ], className="table table-striped table-hover table-bordered w-100")
+                    html.Thead([
+                        html.Tr([html.Th(name, style={"textAlign": "right"}) for _, name in columns])
+                    ]),
+                    html.Tbody([
+                        html.Tr([
+                            html.Td(row[col], style={"textAlign": "right"}) for col, _ in columns
+                        ]) for _, row in kpi_df.iterrows()
+                    ])
+                ], className="table table-hover table-bordered w-100")
 
         return html.Div([
             html.Div("KPIs je Bundesstaat für das Unternehmen", className="fw-bold mb-2"),
@@ -1458,7 +1489,7 @@ def income_category_bar_component(avg_income_str, start_date, end_date, mcc_code
     ])
 
 def calculate_mean_monthly_spending_per_customer(mcc_code, timed_transaction_data):
-    df = timed_transaction_data.copy()
+    df = timed_transaction_data
 
     df['date'] = pd.to_datetime(df['date'])
 
@@ -1494,7 +1525,7 @@ def calculate_mean_monthly_spending_per_customer(mcc_code, timed_transaction_dat
     return f"{truncated:.2f} $"
 
 def get_customer_spending_distribution_pie_chart(start_date, end_date, current_mcc_code, timed_transaction_data):
-    df = timed_transaction_data.copy()
+    df = timed_transaction_data
     df['date'] = pd.to_datetime(df['date'])
 
     df = df[
@@ -1534,51 +1565,37 @@ def get_customer_spending_distribution_pie_chart(start_date, end_date, current_m
     avg_monthly_spending_mcc['percent'] = avg_monthly_spending_mcc['monthly_avg'] / total_avg_spending * 100
     avg_monthly_spending_mcc['description'] = avg_monthly_spending_mcc['mcc'].astype(str).map(mcc_dict).fillna("Unbekannt")
 
-    # Sortieren → zuerst aktuelle Branche, dann Rest aufsteigend
-    selected_row = avg_monthly_spending_mcc[avg_monthly_spending_mcc['mcc'] == int(current_mcc_code)]
+    # Aktuelle Branche extrahieren
+    current_row = avg_monthly_spending_mcc[avg_monthly_spending_mcc['mcc'] == int(current_mcc_code)]
     other_rows = avg_monthly_spending_mcc[avg_monthly_spending_mcc['mcc'] != int(current_mcc_code)]
-    other_rows = other_rows.sort_values(by='monthly_avg', ascending=True)
 
-    # Zusammensetzen
-    sorted_avg_spending = pd.concat([selected_row, other_rows], ignore_index=True)
+    # Top 4 anderen Branchen
+    top_4_others = other_rows.sort_values(by='monthly_avg', ascending=False).head(4)
+    sonstige_rows = other_rows[~other_rows['mcc'].isin(top_4_others['mcc'])]
 
-    #  Plot vorbereiten
-    labels = []
-    values = []
-    hover_labels = []
-    ids = []
-    sonstiges_amount = 0
+    # Pie-Chart Daten vorbereiten
+    pie_data = pd.concat([current_row, top_4_others], ignore_index=True)
+    sonstiges_amount = sonstige_rows['monthly_avg'].sum()
+    sonstiges_percent = sonstiges_amount / total_avg_spending * 100
 
-    for i, row in sorted_avg_spending.iterrows():
-        mcc = row['mcc']
-        amount = row['monthly_avg']
-        percent = row['percent']
-        desc = row['description']
+    labels = pie_data['description'].tolist()
+    values = pie_data['monthly_avg'].tolist()
+    hover_labels = [
+        f"Branche: {row['description']}<br>MCC: {row['mcc']}<br>Ø Monatsausgabe: {row['monthly_avg']:,.2f} $<br>Prozent: {row['percent']:.2f} %"
+        for _, row in pie_data.iterrows()
+    ]
+    ids = pie_data['mcc'].astype(str).tolist()
 
-        if percent < 1.0:
-            sonstiges_amount += amount
-            continue
-
-        if int(mcc) == int(current_mcc_code):
-            labels.append(desc)
-        else:
-            labels.append("")
-
-        values.append(amount)
-        hover_labels.append(
-            f"Branche: {desc}<br>MCC: {mcc}<br>Ø Monatsausgabe: {amount:,.2f} $<br>Prozent: {percent:.2f} %"
-        )
-        ids.append(str(mcc))
-
+    # Sonstiges hinzufügen
     if sonstiges_amount > 0:
         labels.append("Sonstiges")
         values.append(sonstiges_amount)
         hover_labels.append(
-            f"Sonstiges: Ø Monatsausgabe: {sonstiges_amount:,.2f} $ ({sonstiges_amount / total_avg_spending * 100:.2f} %)"
+            f"Sonstiges: Ø Monatsausgabe: {sonstiges_amount:,.2f} $ ({sonstiges_percent:.2f} %)"
         )
         ids.append("Sonstiges")
-    
-    num_segments = len(values)  # oder len(labels)
+
+    num_segments = len(values)
     blues_colors = px.colors.sample_colorscale("Blues", [i/(num_segments-1) for i in range(num_segments)])
 
     fig = go.Figure(
@@ -1590,7 +1607,7 @@ def get_customer_spending_distribution_pie_chart(start_date, end_date, current_m
             hoverinfo='text',
             hole=0.4,
             customdata=ids,
-            sort=False,  
+            sort=False,
             marker=dict(colors=blues_colors)
         )]
     )
@@ -1603,15 +1620,14 @@ def get_customer_spending_distribution_pie_chart(start_date, end_date, current_m
         margin=dict(t=50, b=20, l=20, r=20),
     )
 
-
     print(f"DEBUG: Ø Monatsausgaben pro Kunde (nur aktiv in {current_mcc_code}): {total_avg_spending:.2f} $")
-
     return fig
+
 
 
 def get_dominant_gender_in_branche(mcc_code, timed_transaction_data, show_full_distribution=False):
     # Daten kopieren
-    df = timed_transaction_data.copy()
+    df = timed_transaction_data
    
     users_data['id'] = users_data['id'].astype(str)
 
@@ -1664,7 +1680,7 @@ def get_dominant_gender_in_branche(mcc_code, timed_transaction_data, show_full_d
     return fig
 
 def get_average_age_in_branche(start_date, end_date, mcc_code):
-    df = transaction_data.copy()
+    df = transaction_data
     df['date'] = pd.to_datetime(df['date'])
     users_data['id'] = users_data['id'].astype(str)
 
@@ -1704,7 +1720,7 @@ def get_average_age_in_branche(start_date, end_date, mcc_code):
     return int(mean_age * 100) / 100
 
 def create_age_histogram(start_date, end_date, mcc_code):
-    df = transaction_data.copy()
+    df = transaction_data
     df['date'] = pd.to_datetime(df['date'])
     users_data['id'] = users_data['id'].astype(str)
 
@@ -1756,7 +1772,7 @@ def create_age_histogram(start_date, end_date, mcc_code):
 
 def get_average_credit_score_in_branche(mcc_code, timed_transaction_data):
     # Daten kopieren
-    df = timed_transaction_data.copy()
+    df = timed_transaction_data
 
     users_data['id'] = users_data['id'].astype(str)
 
@@ -1825,8 +1841,8 @@ def erstelle_kredit_score_anzeige(kredit_score_wert):
 
 def plot_card_type_distribution_by_brand(mcc_code, timed_transaction_data , show_percentage=False):
     # Kopiere die Transaktions- und Kartendaten
-    df_tx = timed_transaction_data.copy()
-    df_cards = cards_data.copy()
+    df_tx = timed_transaction_data
+    df_cards = cards_data
 
     # Filtere nach Datum, Branche (MCC) und gültigen IDs
     df_tx = df_tx[
