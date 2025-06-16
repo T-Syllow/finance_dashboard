@@ -85,8 +85,8 @@ def get_income_category_colors_and_labels(einkommensklassen):
 
 # --- Read in data ---
 data_folder = "./newData/"
-transaction_file = data_folder + "cleaned_transaction_data_50k.csv"
 parquet_folder = "./parquet_data/"
+transaction_file = parquet_folder + "cleaned_transaction_data_500k.parquet"
 #transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_50k.csv", sep=',', encoding='utf-8')
 # transaction_data = pd.read_parquet(parquet_folder + "cleaned_transaction_data_50k.parquet", columns=["id","date","client_id","card_id","amount","merchant_id","merchant_city","merchant_state","mcc"])
 cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv")
@@ -95,7 +95,7 @@ with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
     mcc_dict = json.load(f)
 mcc_codes_data = pd.DataFrame(list(mcc_dict.items()), columns=['mcc_code', 'description'])
 
-date_col = pd.read_csv(transaction_file, usecols=['date'])
+date_col = pd.read_parquet(transaction_file, columns=['date'])
 min_date = pd.to_datetime(date_col['date']).min().strftime("%Y-%m-%d")
 max_date = pd.to_datetime(date_col['date']).max().strftime("%Y-%m-%d")
 
@@ -294,7 +294,7 @@ def update_entity_dropdown(category):
             for mcc, cat in mcc_codes_data[["mcc_code", "description"]].drop_duplicates().values
         ]
         return categories
-    merchant_ids = pd.read_csv(transaction_file, usecols=['merchant_id'])['merchant_id'].unique()
+    merchant_ids = pd.read_parquet(transaction_file, columns=['merchant_id'])['merchant_id'].drop_duplicates()
     return [{"label": str(m), "value": str(m)} for m in sorted(merchant_ids)]
 
 def create_merchant_card(merchant_id, total_revenue, transaction_count, standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart, online_umsatz_anteil_display):
@@ -1383,7 +1383,7 @@ def income_category_bar_component(avg_income_str, start_date, end_date, mcc_code
 
     # hole die passenden User-Daten
     unique_clients = df_tx['client_id'].astype(str).unique()
-    matched_users = users_data[users_data['id'].astype(str).isin(unique_clients)].copy()
+    matched_users = users_data[users_data['id'].astype(str).isin(unique_clients)]
 
     if matched_users.empty or 'per_capita_income' not in matched_users.columns:
         return html.P("Keine Nutzerinformationen verfügbar.")
@@ -1517,7 +1517,7 @@ def get_customer_spending_distribution_pie_chart(start_date, end_date, current_m
         return go.Figure()
 
     # Transaktionen aller MCCs dieser Kunden
-    df_clients = df[df['client_id'].isin(kunden_in_branche)].copy()
+    df_clients = df[df['client_id'].isin(kunden_in_branche)]
     df_clients['year_month'] = df_clients['date'].dt.to_period('M')
 
     # Anzahl Monate pro Kunde (egal wo aktiv)
@@ -1615,7 +1615,7 @@ def get_dominant_gender_in_branche(mcc_code, timed_transaction_data, show_full_d
 
     # Kunden holen
     unique_clients = df['client_id'].astype(str).unique()
-    matched_users = users_data[users_data['id'].isin(unique_clients)].copy()
+    matched_users = users_data[users_data['id'].isin(unique_clients)]
 
   
     if matched_users.empty or 'gender' not in matched_users.columns:
@@ -1667,7 +1667,7 @@ def get_average_age_in_branche(start_date, end_date, mcc_code, timed_branchen_da
         return None
 
     unique_clients = df['client_id'].astype(str).unique()
-    matched_users = users_data[users_data['id'].isin(unique_clients)].copy()
+    matched_users = users_data[users_data['id'].isin(unique_clients)]
 
     if 'birth_year' not in matched_users.columns or 'birth_month' not in matched_users.columns:
         return None
@@ -1707,7 +1707,7 @@ def create_age_histogram(start_date, end_date, mcc_code, timed_branchen_data):
         return go.Figure()
 
     unique_clients = df['client_id'].astype(str).unique()
-    matched_users = users_data[users_data['id'].isin(unique_clients)].copy()
+    matched_users = users_data[users_data['id'].isin(unique_clients)]
 
     if 'birth_year' not in matched_users.columns or 'birth_month' not in matched_users.columns:
         return go.Figure()
@@ -1762,7 +1762,7 @@ def get_average_credit_score_in_branche(mcc_code, timed_transaction_data):
     unique_clients = df['client_id'].astype(str).unique()
 
     # Passende Nutzer finden
-    matched_users = users_data[users_data['id'].isin(unique_clients)].copy()
+    matched_users = users_data[users_data['id'].isin(unique_clients)]
 
     # Wenn keine Nutzer oder kein Score, dann nichts zurückgeben
     if matched_users.empty or 'credit_score' not in matched_users.columns:
