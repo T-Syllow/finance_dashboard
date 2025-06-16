@@ -10,6 +10,7 @@ import re
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
+from data_access import load_transactions
 
 
 with urlopen('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json') as response:
@@ -84,8 +85,9 @@ def get_income_category_colors_and_labels(einkommensklassen):
 
 # --- Read in data ---
 data_folder = "./newData/"
+transaction_file = data_folder + "cleaned_transaction_data_50k.csv"
 parquet_folder = "./parquet_data/"
-transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_50k.csv", sep=',', encoding='utf-8')
+#transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_50k.csv", sep=',', encoding='utf-8')
 # transaction_data = pd.read_parquet(parquet_folder + "cleaned_transaction_data_50k.parquet", columns=["id","date","client_id","card_id","amount","merchant_id","merchant_city","merchant_state","mcc"])
 cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv")
 users_data = pd.read_csv(data_folder + "cleaned_users_data.csv")
@@ -93,8 +95,9 @@ with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
     mcc_dict = json.load(f)
 mcc_codes_data = pd.DataFrame(list(mcc_dict.items()), columns=['mcc_code', 'description'])
 
-# alle Händler
-merchants = transaction_data['merchant_id'].unique()
+date_col = pd.read_csv(transaction_file, usecols=['date'])
+min_date = pd.to_datetime(date_col['date']).min().strftime("%Y-%m-%d")
+max_date = pd.to_datetime(date_col['date']).max().strftime("%Y-%m-%d")
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -108,10 +111,10 @@ app.layout = dbc.Container([
             dbc.Col([
                 dcc.DatePickerRange(
                     id='date-range-start',
-                    min_date_allowed=transaction_data['date'].min(),
-                    max_date_allowed=transaction_data['date'].max(),
-                    start_date=transaction_data['date'].min(),
-                    end_date=transaction_data['date'].max(),
+                    min_date_allowed=min_date,
+                    max_date_allowed=max_date,
+                    start_date=min_date,
+                    end_date=max_date,
                     className="datepicker"
                 ),
             ], width=12, className="gap-5" ,id='zeitraum_container'),
@@ -199,10 +202,8 @@ app.layout = dbc.Container([
     Input('date-range-start', 'end_date'),
 )
 def update_timed_transaction_data(start_date, end_date):
-    df = transaction_data
-    df['date'] = pd.to_datetime(df['date'])
-    filtered = df[(df['date'] >= pd.to_datetime(start_date)) & (df['date'] <= pd.to_datetime(end_date))]
-    return filtered.to_dict('records')
+    df = load_transactions(transaction_file, start_date, end_date)
+    return df.to_dict('records')
 
 @app.callback(
     Output('timed_branchen_transaction_data', 'data'),
@@ -212,21 +213,10 @@ def update_timed_transaction_data(start_date, end_date):
     Input('entity_dropdown', 'value')  # Die ausgewählte Branche (MCC)
 )
 def update_timed_branchen_transaction_data(start_date, end_date, category, entity):
-    if category == 'Branchen':
-        if entity is None:
-            return []  # Keine Daten, wenn keine Branche ausgewählt ist
-
-        df = transaction_data
-        df['date'] = pd.to_datetime(df['date'])
-
-        # Filtere die Daten basierend auf dem Zeitraum und der Branche (MCC)
-        filtered = df[
-            (df['date'] >= pd.to_datetime(start_date)) &
-            (df['date'] <= pd.to_datetime(end_date)) &
-            (df['mcc'] == int(entity))
-        ]
-
-        return filtered.to_dict('records')
+    if category == 'Branchen' and entity is not None:
+        df = load_transactions(transaction_file, start_date, end_date, mcc=entity)
+        return df.to_dict('records')
+    return []
     
 @app.callback(
     Output('timed_unternehmen_transaction_data', 'data'),
@@ -238,19 +228,12 @@ def update_timed_branchen_transaction_data(start_date, end_date, category, entit
 def update_timed_unternehmen_transaction_data(start_date, end_date, category, entity):
     if category == 'Unternehmen':
         if entity is None:
-            return []  # Keine Daten, wenn keine Branche ausgewählt ist
+            return []  # Keine Daten, wenn kein Unternehmen ausgewählt ist
 
-        df = transaction_data
-        df['date'] = pd.to_datetime(df['date'])
-
-        # Filtere die Daten basierend auf dem Zeitraum und der Branche (MCC)
-        filtered = df[
-            (df['date'] >= pd.to_datetime(start_date)) &
-            (df['date'] <= pd.to_datetime(end_date)) &
-            (df['merchant_id'] == int(entity))
-        ]
-
-        return filtered.to_dict('records')
+        # Nutze die ausgelagerte Funktion für gefiltertes Laden
+        df = load_transactions(transaction_file, start_date, end_date, merchant_id=entity)
+        return df.to_dict('records')
+    return []
 
 @callback(
     Output('map-container', 'children'),
@@ -311,7 +294,8 @@ def update_entity_dropdown(category):
             for mcc, cat in mcc_codes_data[["mcc_code", "description"]].drop_duplicates().values
         ]
         return categories
-    return merchants.tolist()
+    merchant_ids = pd.read_csv(transaction_file, usecols=['merchant_id'])['merchant_id'].unique()
+    return [{"label": str(m), "value": str(m)} for m in sorted(merchant_ids)]
 
 def create_merchant_card(merchant_id, total_revenue, transaction_count, standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart, online_umsatz_anteil_display):
     return [
@@ -623,32 +607,19 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         Marktkapitalisierung = umsatz_pro_merchant["gesamtumsatz"].sum()  
         Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        # =====================================================================================
-
-
-    
-
-        #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
-        #branchen_transaktionen = time_transaction_data[time_transaction_data['mcc'] == int(entity)]
-
         GesamtTransaktionen = branchen_transaktionen["merchant_id"].count()
         EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
         DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
 
         DurchschnittTransaktionenProKäufer = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        # =====================================================================================
-
         #Durchschnittliche Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum
 
-        #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
         DurchschnittTransaktionshöhe = branchen_transaktionen['amount'].mean()
         DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} $ ".replace(",", "X").replace(".", ",").replace("X", ".")
-
-        # =====================================================================================
         
         # Eine Serie, in der jeder Kunde (client_id) mit der Gesamtsumme seiner Ausgaben (amount) verknüpft ist.
-        GesamtAusgabenProClient = transaction_data.groupby("client_id")["amount"].sum()
+        GesamtAusgabenProClient = df.groupby("client_id")["amount"].sum()
         # Ein einzelner Wert, der den durchschnittlichen Betrag angibt, den ein Kunde insgesamt ausgegeben hat.
         Durchschnitt_gesamt = GesamtAusgabenProClient.mean()
         
@@ -692,9 +663,6 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
         #Durchschnitt der Transaktionen Pro Käufer - noch nicht fertig 
 
-        #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
-        #branchen_transaktionen = time_transaction_data[time_transaction_data['mcc'] == int(entity)]
-
         GesamtTransaktionen = branchen_transaktionen["merchant_id"].count()
         EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
         DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
@@ -708,7 +676,6 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
         #Durchschnittliche Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum
 
-        #branchen_transaktionen = transaction_data[transaction_data['mcc'] == int(entity)]
         DurchschnittTransaktionshöhe = branchen_transaktionen['amount'].mean()
         DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} $ ".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -718,7 +685,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         
         #Consumer Money Spent (%)
         
-        GesamtAusgabenProClient = transaction_data.groupby("client_id")["amount"].sum()
+        GesamtAusgabenProClient = df.groupby("client_id")["amount"].sum()
         Durchschnitt_gesamt = GesamtAusgabenProClient.mean()
 
         BranchenAusgabenProClient = branchen_transaktionen.groupby("client_id")["amount"].sum()
@@ -909,8 +876,11 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
     
         #MarktkapitalisierungUnternehmen = unternehmen_transaktionen["amount"].sum()
-        unternehmen_mcc = timed_unternehmen_data['mcc'].iloc[0]  
-        unternehmen_mcc = int(unternehmen_mcc)  # Sicherstellen, dass es ein Integer ist
+        if not timed_unternehmen_data.empty and 'mcc' in timed_unternehmen_data.columns:
+            unternehmen_mcc = timed_unternehmen_data['mcc'].iloc[0]
+            unternehmen_mcc = int(unternehmen_mcc)
+        else:
+            unternehmen_mcc = None
         print("MCC des Unternehmens:", unternehmen_mcc)
         GesamtMarktkapitalisierungBranche = df[df['mcc'] == unternehmen_mcc]["amount"].sum()
         
@@ -920,10 +890,12 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         branchenbeschreibung = branchenbeschreibung[0] if len(branchenbeschreibung) > 0 else "Unbekannte Branche"
 
         #Transaktionshöhe anzahl pro Bereich 
-        ErsterPreisbereich = timed_unternehmen_data[timed_unternehmen_data['amount']<50]['amount'].count()
-        #ZweiterPreisbereich = unternehmen_transaktionen[unternehmen_transaktionen['amount']>=50 & unternehmen_transaktionen['amount']<=200].count()
-        ZweiterPreisbereich = timed_unternehmen_data[(timed_unternehmen_data['amount'] >= 50) & (timed_unternehmen_data['amount'] <= 200)]['amount'].count()
-        DritterPreisbereich = timed_unternehmen_data[timed_unternehmen_data['amount']>200]['amount'].count()
+        if not timed_unternehmen_data.empty and 'amount' in timed_unternehmen_data.columns:
+            ErsterPreisbereich = timed_unternehmen_data[timed_unternehmen_data['amount'] < 50]['amount'].count()
+            ZweiterPreisbereich = timed_unternehmen_data[(timed_unternehmen_data['amount'] >= 50) & (timed_unternehmen_data['amount'] <= 200)]['amount'].count()
+            DritterPreisbereich = timed_unternehmen_data[timed_unternehmen_data['amount'] > 200]['amount'].count()
+        else:
+            ErsterPreisbereich = ZweiterPreisbereich = DritterPreisbereich = 0
 
         fig_pie = px.pie(
             names=["Marktkapitalisierung", "Gesamtkapitalisierung je Branche"],
@@ -1178,14 +1150,14 @@ def render_detailview5(category, timed_transaction_data, timed_branchen_data, ti
                         
                         # Zahl
                         html.P(
-                            f"{get_average_age_in_branche(start_date_first, end_date_first, entity)} Jahre",
+                            f"{get_average_age_in_branche(start_date_first, end_date_first, entity, timed_branchen_data)} Jahre",
                             className="fs-4 fw-bold"
                         ),
                         
 
                         # Histogramm darunter
                         dcc.Graph(
-                            figure=create_age_histogram(start_date_first, end_date_first, entity),
+                            figure=create_age_histogram(start_date_first, end_date_first, entity, timed_branchen_data),
                             config={"displayModeBar": False},
                             style={"height": "200px"},
                             className="w-100"
@@ -1203,7 +1175,7 @@ def render_detailview5(category, timed_transaction_data, timed_branchen_data, ti
                                 avg_income := calculate_avg_income_for_branche(entity, df),
                                 className="card-text fw-bold"
                             ),
-                                    income_category_bar_component(avg_income, start_date_first, end_date_first, entity)
+                                    income_category_bar_component(avg_income, start_date_first, end_date_first, entity, timed_branchen_data)
 
                         ], className="persona-card")
                     ], className="h-100")
@@ -1294,7 +1266,7 @@ def calculate_avg_income_for_branche(mcc_code, timed_transaction_data):
 
     # Nach Datum und Branche filtern
     filtered_tx = timed_transaction_data[
-        (transaction_data['mcc'] == int(mcc_code))
+        (timed_transaction_data['mcc'] == int(mcc_code))
     ]
 
     # Kunden-IDs
@@ -1370,7 +1342,7 @@ def calculate_avg_income_for_branche(mcc_code, timed_transaction_data):
 
     # Nach Datum und Branche filtern
     filtered_tx = timed_transaction_data[
-        (transaction_data['mcc'] == int(mcc_code))
+        (timed_transaction_data['mcc'] == int(mcc_code))
     ]
 
     # Kunden-IDs
@@ -1391,19 +1363,19 @@ def calculate_avg_income_for_branche(mcc_code, timed_transaction_data):
     # Ergebnis mit $ zurückgeben
     return f"{t_income:.2f} $"
     
-def income_category_bar_component(avg_income_str, start_date, end_date, mcc_code):
+def income_category_bar_component(avg_income_str, start_date, end_date, mcc_code, timed_branchen_data):
     if avg_income_str == "Keine Daten":
         return html.P("Keine Daten verfügbar.")
 
     income_value = float(avg_income_str.replace(" $", "").replace(",", ""))
 
     # hole alle Kunden in der Branche und Zeitraum
-    transaction_data['date'] = pd.to_datetime(transaction_data['date'])
-    df_tx = transaction_data[
-        (transaction_data['date'] >= pd.to_datetime(start_date)) &
-        (transaction_data['date'] <= pd.to_datetime(end_date)) &
-        (transaction_data['mcc'] == int(mcc_code)) &
-        (transaction_data['client_id'].notna())
+    timed_branchen_data['date'] = pd.to_datetime(timed_branchen_data['date'])
+    df_tx = timed_branchen_data[
+        (timed_branchen_data['date'] >= pd.to_datetime(start_date)) &
+        (timed_branchen_data['date'] <= pd.to_datetime(end_date)) &
+        (timed_branchen_data['mcc'] == int(mcc_code)) &
+        (timed_branchen_data['client_id'].notna())
     ]
 
     if df_tx.empty:
@@ -1679,8 +1651,8 @@ def get_dominant_gender_in_branche(mcc_code, timed_transaction_data, show_full_d
     fig.update_traces(textposition='inside', textinfo='percent+label')
     return fig
 
-def get_average_age_in_branche(start_date, end_date, mcc_code):
-    df = transaction_data
+def get_average_age_in_branche(start_date, end_date, mcc_code, timed_branchen_data):
+    df = timed_branchen_data
     df['date'] = pd.to_datetime(df['date'])
     users_data['id'] = users_data['id'].astype(str)
 
@@ -1719,8 +1691,8 @@ def get_average_age_in_branche(start_date, end_date, mcc_code):
     mean_age = matched_users['age'].mean()
     return int(mean_age * 100) / 100
 
-def create_age_histogram(start_date, end_date, mcc_code):
-    df = transaction_data
+def create_age_histogram(start_date, end_date, mcc_code, timed_branchen_data):
+    df = timed_branchen_data
     df['date'] = pd.to_datetime(df['date'])
     users_data['id'] = users_data['id'].astype(str)
 
