@@ -237,35 +237,34 @@ def update_timed_unternehmen_transaction_data(start_date, end_date, category, en
 
 @callback(
     Output('map-container', 'children'),
-    Input('timed_transaction_data', 'data'),
+    Input('timed_unternehmen_transaction_data', 'data'),
+    Input('timed_branchen_transaction_data', 'data'),
     Input('entity_dropdown', 'value'),
     Input('category_dropdown', 'value'),
 )
-def renderMap(timed_transaction_data, entity_value, category_value):
-    if timed_transaction_data is None or entity_value is None:
-        return None
+def renderMap(timed_unternehmen_transaction_data, timed_branchen_transaction_data, entity_value, category_value):
+    # Wähle das passende, bereits gefilterte DataFrame
+    if category_value == 'Branchen':
+        data = timed_branchen_transaction_data
+    elif category_value == 'Unternehmen':
+        data = timed_unternehmen_transaction_data
+    else:
+        data = None
 
-    # DataFrame aus Store-Daten rekonstruieren
-    filtered_data = pd.DataFrame(timed_transaction_data)
-    if filtered_data.empty:
+    if data is None or entity_value is None or len(data) == 0:
+        return dbc.Alert("Keine Daten im gewählten Zeitraum.", color="warning")
+
+    df_filtered = pd.DataFrame(data)
+    if df_filtered.empty:
         return dbc.Alert("Keine Daten im gewählten Zeitraum.", color="warning")
 
     geo_col = country_config['geo_column']
     scope = country_config['scope']
     location_mode = country_config.get('location_mode', None)
 
-    if category_value == 'Branchen' and entity_value is not None:
-        # Filtern nach MCC Code (Branche)
-        df_filtered = filtered_data[filtered_data['mcc'] == int(entity_value)]
-        # Berechnung der Marktkapitalisierung (Umsatz) pro Bundesstaat für die Branche
-        marketcap = df_filtered.groupby(geo_col)['amount'].sum().reset_index(name="marketcap")
-        title_text = f"Umsatz pro Bundesstaat:"
-    elif category_value == 'Unternehmen' and entity_value is not None:
-        # Filtern nach merchant_id (Unternehmen)
-        df_filtered = filtered_data[filtered_data['merchant_id'] == int(entity_value)]
-        # Berechnung des Umsatzes pro Bundesstaat für das Unternehmen
-        marketcap = df_filtered.groupby(geo_col)['amount'].sum().reset_index(name="marketcap")
-        title_text = f"Umsatz pro Bundesstaat:"
+    # Gruppiere nach Bundesstaat und berechne Umsatz
+    marketcap = df_filtered.groupby(geo_col)['amount'].sum().reset_index(name="marketcap")
+    title_text = f"Umsatz pro Bundesstaat:"
 
     if not marketcap.empty:
         fig = px.choropleth(
@@ -336,14 +335,12 @@ def create_ranklist(title, content, list_id):
             ], width=12, className="ranklist_wrapper d-flex")
         ])
    
-def handle_unternehmen(df, entity_value, unternehmen_transaktionen):
+def handle_unternehmen(df_merchant, entity_value):
+
     merchant_id = int(entity_value)
-    df_merchant = df[df['merchant_id'] == merchant_id]
 
     if df_merchant.empty:
         return dbc.Alert("Keine Daten für dieses Unternehmen verfügbar.", color="warning")
-    
-    unternehmen_transaktionen = pd.DataFrame(unternehmen_transaktionen)
 
     total_revenue = df_merchant['amount'].sum()
     standorte = (
@@ -366,7 +363,7 @@ def handle_unternehmen(df, entity_value, unternehmen_transaktionen):
     marktanteil_display = "n/a"
 
     # Marktanteil berechnen
-    branche_umsatz = df[df['mcc'] == int(mcc_code)]['amount'].sum() if 'mcc' in df.columns else 0
+    branche_umsatz = df_merchant['amount'].sum() if 'mcc' in df_merchant.columns else 0
     if branche_umsatz > 0:
         marktanteil = total_revenue / branche_umsatz * 100
         marktanteil_display = f"{marktanteil:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -384,7 +381,7 @@ def handle_unternehmen(df, entity_value, unternehmen_transaktionen):
 
 
     top_10_bundesstaaten = (
-        unternehmen_transaktionen.groupby('merchant_state')['amount']
+        df_merchant.groupby('merchant_state')['amount']
         .sum()
         .reset_index(name='total_revenue')
         .sort_values(by='total_revenue', ascending=False)
@@ -416,8 +413,7 @@ def handle_unternehmen(df, entity_value, unternehmen_transaktionen):
 
     return create_merchant_card(merchant_id, total_revenue, len(df_merchant), standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart, online_umsatz_anteil_display)
 
-def handle_branchen(df, entity_value):
-    df_branche = df[df['mcc'] == int(entity_value)]
+def handle_branchen(df_branche, entity_value):
 
     if df_branche.empty:
         return dbc.Col([
@@ -462,18 +458,20 @@ def handle_branchen(df, entity_value):
     Output('right_section', 'children'),
     Input('category_dropdown', 'value'),
     Input('entity_dropdown', 'value'),
-    Input('timed_transaction_data', 'data'),
+    Input('timed_unternehmen_transaction_data', 'data'),
+    Input('timed_branchen_transaction_data', 'data'),
 )
-def update_right_section(category, entity_value, timed_unternehmen_transaction_data):
+def update_right_section(category, entity_value, timed_unternehmen_transaction_data, timed_branchen_transaction_data):
     if timed_unternehmen_transaction_data is None or entity_value is None:
         return None
 
-    df = pd.DataFrame(timed_unternehmen_transaction_data)
 
     if category == 'Unternehmen':
-        return handle_unternehmen(df, entity_value, timed_unternehmen_transaction_data)
+        df = pd.DataFrame(timed_unternehmen_transaction_data)
+        return handle_unternehmen(df, entity_value)
 
     if category == 'Branchen':
+        df = pd.DataFrame(timed_branchen_transaction_data)
         return handle_branchen(df, entity_value)
 
     return None
@@ -537,15 +535,13 @@ def toggle_class4(n1, n2, current_class):
     if "top-100-percent" in current_class:
         return "h-100 position-absolute left-0 col-12 top-0-pixel"
     else:
-        return "h-100 position-absolute left-0 col-12 top-100-percent"    
-    
-def process_branchen_data(df, entity, start_date, end_date):
-    time_transaction_data = df[(df['date'] >= pd.to_datetime(start_date)) & (df['date'] <= pd.to_datetime(end_date))]
-    branchen_transaktionen = time_transaction_data[time_transaction_data['mcc'] == int(entity)]
-    branchen_transaktionen["year"] = pd.to_datetime(branchen_transaktionen["date"]).dt.year
-    umsatz_Jahr_Merchant = branchen_transaktionen.groupby(["year", "merchant_id"])["amount"].sum().reset_index(name="Umsatz_im_Jahr")
+        return "h-100 position-absolute left-0 col-12 top-100-percent"
+
+def process_branchen_data(df, timed_branchen_data, entity, start_date, end_date):
+    timed_branchen_data["year"] = pd.to_datetime(timed_branchen_data["date"]).dt.year
+    umsatz_Jahr_Merchant = timed_branchen_data.groupby(["year", "merchant_id"])["amount"].sum().reset_index(name="Umsatz_im_Jahr")
     umsatz_pro_merchant = umsatz_Jahr_Merchant.groupby("merchant_id")["Umsatz_im_Jahr"].sum().reset_index(name="gesamtumsatz")
-    return umsatz_Jahr_Merchant, umsatz_pro_merchant, branchen_transaktionen
+    return umsatz_Jahr_Merchant, umsatz_pro_merchant
 
 def create_kpi_cards(kpis):
     blues_colors = [
@@ -593,9 +589,10 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
     if category == 'Branchen' and entity is not None:
         
+        gesamt_ausgaben_pro_client = pd.read_parquet("./parquet_data/gesamt_ausgaben_pro_client.parquet")
         # =======================
         
-        umsatz_Jahr_Merchant, umsatz_pro_merchant, branchen_transaktionen = process_branchen_data(df, entity, start_date_first, end_date_first)
+        umsatz_Jahr_Merchant, umsatz_pro_merchant = process_branchen_data(df, timed_branchen_data, entity, start_date_first, end_date_first)
         top_5 = umsatz_pro_merchant.nlargest(5, 'gesamtumsatz')
         flop_5 = umsatz_pro_merchant.nsmallest(5, 'gesamtumsatz')
         fig1, fig2 = create_branchen_charts(umsatz_Jahr_Merchant, top_5, flop_5)
@@ -607,24 +604,23 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         Marktkapitalisierung = umsatz_pro_merchant["gesamtumsatz"].sum()  
         Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        GesamtTransaktionen = branchen_transaktionen["merchant_id"].count()
-        EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
+        GesamtTransaktionen = timed_branchen_data["merchant_id"].count()
+        EinzigartigeKäufer = timed_branchen_data["client_id"].nunique()
         DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
 
         DurchschnittTransaktionenProKäufer = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
 
         #Durchschnittliche Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum
 
-        DurchschnittTransaktionshöhe = branchen_transaktionen['amount'].mean()
+        DurchschnittTransaktionshöhe = timed_branchen_data['amount'].mean()
         DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} $ ".replace(",", "X").replace(".", ",").replace("X", ".")
         
-        # Eine Serie, in der jeder Kunde (client_id) mit der Gesamtsumme seiner Ausgaben (amount) verknüpft ist.
-        GesamtAusgabenProClient = df.groupby("client_id")["amount"].sum()
+       
         # Ein einzelner Wert, der den durchschnittlichen Betrag angibt, den ein Kunde insgesamt ausgegeben hat.
-        Durchschnitt_gesamt = GesamtAusgabenProClient.mean()
+        Durchschnitt_gesamt = gesamt_ausgaben_pro_client['gesamt_ausgaben'].mean()
         
         
-        BranchenAusgabenProClient = branchen_transaktionen.groupby("client_id")["amount"].sum()
+        BranchenAusgabenProClient = timed_branchen_data.groupby("client_id")["amount"].sum()
 
         # Ein einzelner Wert, der den durchschnittlichen Betrag angibt, den ein Kunde in der Branche ausgegeben hat.
         DurchschnittBranche = BranchenAusgabenProClient.mean()
@@ -635,9 +631,9 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
         # =================== Online Umsatzanteil =====================
 
-        online_transaktionen = branchen_transaktionen[branchen_transaktionen['merchant_city'].str.upper() == 'ONLINE']
+        online_transaktionen = timed_branchen_data[timed_branchen_data['merchant_city'].str.upper() == 'ONLINE']
         online_umsatz = online_transaktionen['amount'].sum()
-        gesamt_umsatz = branchen_transaktionen['amount'].sum()
+        gesamt_umsatz = timed_branchen_data['amount'].sum()
 
         if gesamt_umsatz > 0:
             online_umsatz_anteil = (online_umsatz / gesamt_umsatz) * 100
@@ -648,23 +644,21 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         # =====================================================================================
 
         #Unique Customers
-        EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
-
-       
+        EinzigartigeKäufer = timed_branchen_data["client_id"].nunique()
 
         #Marktkapitalisierung berechnet
 
-        Marktkapitalisierung = umsatz_pro_merchant["gesamtumsatz"].sum()  
+        Marktkapitalisierung = umsatz_pro_merchant["gesamtumsatz"].sum()
         Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
         print("Marktkapitalisierung: ", Marktkapitalisierung)
 
         # =====================================================================================
 
 
-        #Durchschnitt der Transaktionen Pro Käufer - noch nicht fertig 
+        #Durchschnitt der Transaktionen Pro Käufer - noch nicht fertig
 
-        GesamtTransaktionen = branchen_transaktionen["merchant_id"].count()
-        EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
+        GesamtTransaktionen = timed_branchen_data["merchant_id"].count()
+        EinzigartigeKäufer = timed_branchen_data["client_id"].nunique()
         DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
 
         DurchschnittTransaktionenProKäufer = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -676,7 +670,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
         #Durchschnittliche Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum
 
-        DurchschnittTransaktionshöhe = branchen_transaktionen['amount'].mean()
+        DurchschnittTransaktionshöhe = timed_branchen_data['amount'].mean()
         DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} $ ".replace(",", "X").replace(".", ",").replace("X", ".")
 
         print("Durchschnittliche Transaktionshöhe: ", DurchschnittTransaktionshöhe)
@@ -684,11 +678,8 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         # =====================================================================================
         
         #Consumer Money Spent (%)
-        
-        GesamtAusgabenProClient = df.groupby("client_id")["amount"].sum()
-        Durchschnitt_gesamt = GesamtAusgabenProClient.mean()
 
-        BranchenAusgabenProClient = branchen_transaktionen.groupby("client_id")["amount"].sum()
+        BranchenAusgabenProClient = timed_branchen_data.groupby("client_id")["amount"].sum()
         DurchschnittBranche = BranchenAusgabenProClient.mean()
 
         ConsumerMoneySpent= (DurchschnittBranche / Durchschnitt_gesamt) * 100
@@ -699,20 +690,20 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         # =====================================================================================
 
         #Unique Customers
-        EinzigartigeKäufer = branchen_transaktionen["client_id"].nunique()
+        EinzigartigeKäufer = timed_branchen_data["client_id"].nunique()
 
         umsatzwachstum_display = "n/a"
 
         umsatz_pro_jahr = ""
 
-        if not branchen_transaktionen.empty:
-            branchen_transaktionen['date'] = pd.to_datetime(branchen_transaktionen['date'])
-            branchen_transaktionen['year'] = branchen_transaktionen['date'].dt.year
+        if not timed_branchen_data.empty:
+            timed_branchen_data['date'] = pd.to_datetime(timed_branchen_data['date'])
+            timed_branchen_data['year'] = timed_branchen_data['date'].dt.year
 
             start_year = pd.to_datetime(start_date_first).year
             end_year = pd.to_datetime(end_date_first).year
 
-            umsatz_pro_jahr = branchen_transaktionen.groupby('year')['amount'].sum()
+            umsatz_pro_jahr = timed_branchen_data.groupby('year')['amount'].sum()
             print("Umsatz pro Jahr:", umsatz_pro_jahr)
 
             if start_year in umsatz_pro_jahr.index and end_year in umsatz_pro_jahr.index:
@@ -789,15 +780,11 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
     if category == 'Unternehmen' and entity is not None:
 
-        # Konvertiere timed_transaction_data in ein DataFrame
-        df = pd.DataFrame(timed_transaction_data)
-
-        # Filtere die Transaktionen für das ausgewählte Unternehmen
-        unternehmen_transaktionen = df[df['merchant_id'] == entity]
+        gesamt_ausgaben_pro_client = pd.read_parquet("./parquet_data/gesamt_ausgaben_pro_client.parquet")
 
         # Umsatz pro Monat berechnen
-        unternehmen_transaktionen['month'] = pd.to_datetime(unternehmen_transaktionen['date']).dt.to_period('M')
-        umsatz_pro_monat = unternehmen_transaktionen.groupby('month')['amount'].sum().reset_index()
+        timed_unternehmen_data['month'] = pd.to_datetime(timed_unternehmen_data['date']).dt.to_period('M')
+        umsatz_pro_monat = timed_unternehmen_data.groupby('month')['amount'].sum().reset_index()
         umsatz_pro_monat['month'] = umsatz_pro_monat['month'].astype(str)  # Monat in String umwandeln für die Darstellung
 
         # Bar-Chart erstellen
@@ -818,20 +805,19 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         )
 
         # Weitere Berechnungen und KPIs
-        Marktkapitalisierung = unternehmen_transaktionen["amount"].sum()
+        Marktkapitalisierung = timed_unternehmen_data["amount"].sum()
         MarktkapitalisierungDisplay = f"{Marktkapitalisierung:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        DurchschnittTransaktionshöhe = unternehmen_transaktionen['amount'].mean()
+        DurchschnittTransaktionshöhe = timed_unternehmen_data['amount'].mean()
         DurchschnittTransaktionshöheDisplay = f"{DurchschnittTransaktionshöhe:,.2f} $ ".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        GesamtTransaktionen = unternehmen_transaktionen["merchant_id"].count()
-        EinzigartigeKäufer = unternehmen_transaktionen["client_id"].nunique()
+        GesamtTransaktionen = timed_unternehmen_data["merchant_id"].count()
+        EinzigartigeKäufer = timed_unternehmen_data["client_id"].nunique()
         DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
         DurchschnittTransaktionenProKäuferDisplay = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        GesamtAusgabenProClient = df.groupby("client_id")["amount"].sum()
-        Durchschnitt_gesamt = GesamtAusgabenProClient.mean()
-        UnternehmensAusgabenProClient = unternehmen_transaktionen.groupby("client_id")["amount"].sum()
+        Durchschnitt_gesamt = gesamt_ausgaben_pro_client['gesamt_ausgaben'].mean()
+        UnternehmensAusgabenProClient = timed_unternehmen_data.groupby("client_id")["amount"].sum()
 
         DurchschnittBranche = UnternehmensAusgabenProClient.mean()
         ConsumerMoneySpent = (DurchschnittBranche / Durchschnitt_gesamt) * 100
@@ -840,7 +826,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         CustomerLifetimeValue = Durchschnitt_gesamt / EinzigartigeKäufer * 100
         CustomerLifetimeValueDisplay = f"{CustomerLifetimeValue:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        bundesstaat_transaktionen = df.groupby('merchant_state')['merchant_id'].count().reset_index(name='transaction_count')
+        bundesstaat_transaktionen = timed_unternehmen_data.groupby('merchant_state')['merchant_id'].count().reset_index(name='transaction_count')
 
 
         # Sortiere die Bundesstaaten nach der Anzahl der Transaktionen und wähle die Top 3 aus
@@ -957,56 +943,6 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
                 ], width=12, className="detail-view-right-section-4 d-flex"),
             ], md=9, sm=12, className="detail-view-right-section")
         ]
-    if category == 'Unternehmen':
-
-        kpis = [
-            {'Marktkapitalisierung': 100000000},
-            {'durchschn. Transaktionshöhe': 380.20},
-            {'durchschn. Transaktionen pro Käufer': 100000000},
-            {'Umsatzwachstum (%)': 87.32},
-            {'Consumer Money Spent (%)': 100000000},
-            {'Unique Customers': 2102},
-        ]
-
-        return [
-            dbc.Col([
-                dbc.Col([
-                    dbc.Card([
-                        dbc.CardBody(
-                            [
-                                html.H5(value),
-                                html.P(
-                                    key
-                                ),
-                            ], className="kpi-card-body"
-                        ),         
-                    ], color="success", outline=True)
-                ],width=5, className="kpi-card p-2")
-                for kpi in kpis
-                for key, value in kpi.items()
-            ], width=5, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start p-3 overflow-y-scroll"),
-            dbc.Col([
-                dbc.Col([
-                    dbc.Card(
-                        [
-                            dbc.CardHeader(
-                                dbc.Tabs(
-                                    [
-                                        dbc.Tab("erster Tab Content",label="Top 5", tab_id="tab-3"),
-                                        dbc.Tab("erster Tab Content",label="Flop 5", tab_id="tab-4"),
-                                    ],
-                                    active_tab="tab-3",
-                                )
-                            ),
-                        ]
-                    ),
-                ], width=12, className="detail-view-right-section-1"),
-                dbc.Col([
-                    html.Div("Persona")
-                ], width=12, className="detail-view-right-section-2"),
-            ], width=7, className="detail-view-right-section")
-        ]
-    
 
 @app.callback(
     Output("detail-view2", "children"),
@@ -1014,7 +950,7 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
     Input('timed_branchen_transaction_data', 'data'),
     Input('timed_unternehmen_transaction_data', 'data'),
 )
-def render_detailview2(category, timed_branchen_data, timed_unternehmen_data):
+def render_detailview2(category, timed_branchen_data, timed_unternehmen_data):  # Tabelle für Branchen mit KPIs
     if category == 'Unternehmen':
         return html.Div("Unternehmensdaten werden hier angezeigt.")
 
@@ -1070,7 +1006,7 @@ def render_detailview2(category, timed_branchen_data, timed_unternehmen_data):
     Input('timed_branchen_transaction_data', 'data'),
     Input('timed_unternehmen_transaction_data', 'data'),
 )
-def render_detailview4(category, timed_branchen_data, timed_unternehmen_data):
+def render_detailview4(category, timed_branchen_data, timed_unternehmen_data): # Tabelle für Unternehmen mit KPIs
     if category == 'Unternehmen':
         if timed_unternehmen_data is None or len(timed_unternehmen_data) == 0:
             return html.Div("Keine Daten verfügbar.")
@@ -1117,29 +1053,27 @@ def render_detailview4(category, timed_branchen_data, timed_unternehmen_data):
         ], className="w-100 overflow-scroll")
 
 
+# Personas für Branchen 
 @app.callback(
     Output("detail-view5", "children"),
     Input("category_dropdown", "value"),
-    Input('timed_transaction_data', 'data'),
     Input('timed_branchen_transaction_data', 'data'),
-    Input('timed_unternehmen_transaction_data', 'data'),
     Input("entity_dropdown", "value"),
     Input("date-range-start", "start_date"),
     Input("date-range-start", "end_date"),
 )
-def render_detailview5(category, timed_transaction_data, timed_branchen_data, timed_unternehmen_data, entity, start_date_first, end_date_first):
-    
-    if timed_transaction_data is None:
+def render_detailview5(category, timed_branchen_data, entity, start_date_first, end_date_first):
+
+    if timed_branchen_data is None:
         return dbc.Alert("Keine Transaktionsdaten verfügbar.", color="warning")
 
-    df = pd.DataFrame(timed_transaction_data)
-    timed_unternehmen_data = pd.DataFrame(timed_unternehmen_data)
     timed_branchen_data = pd.DataFrame(timed_branchen_data)
-    df['date'] = pd.to_datetime(df['date'])
-    
+    if 'date' in timed_branchen_data.columns:
+        timed_branchen_data['date'] = pd.to_datetime(timed_branchen_data['date'])
+    else:
+        return dbc.Alert("Keine Datumsinformationen verfügbar.", color="warning")
+
     if category == 'Branchen' and timed_branchen_data is not None:
-        
-        # =======================
         
         persona_cards = dbc.Row([
 
@@ -1172,7 +1106,7 @@ def render_detailview5(category, timed_transaction_data, timed_branchen_data, ti
                         dbc.CardBody([
                             html.H6("Durchschnittliches Einkommen ($)", className="card-title"),
                             html.P(
-                                avg_income := calculate_avg_income_for_branche(entity, df),
+                                avg_income := calculate_avg_income_for_branche(entity, timed_branchen_data),
                                 className="card-text fw-bold"
                             ),
                                     income_category_bar_component(avg_income, start_date_first, end_date_first, entity, timed_branchen_data)
@@ -1185,11 +1119,11 @@ def render_detailview5(category, timed_transaction_data, timed_branchen_data, ti
                     dbc.CardBody([
                         html.H6("Ø Monatsausgaben pro Kunde in dieser Branche (im ausgewählten Zeitraum)", className="card-title"),
                         html.P(
-                            calculate_mean_monthly_spending_per_customer(entity, df),
+                            calculate_mean_monthly_spending_per_customer(entity, timed_branchen_data),
                             className="card-text"
                         ),
                         dcc.Graph(
-                            figure=get_customer_spending_distribution_pie_chart(start_date_first, end_date_first, entity, df),
+                            figure=get_customer_spending_distribution_pie_chart(start_date_first, end_date_first, entity, timed_branchen_data),
                             config={"displayModeBar": False},
                             style={"height": "200px"},
                             className="w-100"
@@ -1202,7 +1136,7 @@ def render_detailview5(category, timed_transaction_data, timed_branchen_data, ti
                 dbc.Card([
                     dbc.CardBody([
                         html.H6("Kartennutzung nach Typ & Marke", className="card-title"),
-                        dcc.Graph(figure=plot_card_type_distribution_by_brand(entity, df), style={"height": "200px"}, className="w-100"),
+                        dcc.Graph(figure=plot_card_type_distribution_by_brand(entity, timed_branchen_data), style={"height": "200px"}, className="w-100"),
                     ], className="persona-card")
                 ], className="h-100")
             ], md=4, sm=12, className="mb-3"),
@@ -1210,7 +1144,7 @@ def render_detailview5(category, timed_transaction_data, timed_branchen_data, ti
                 dbc.Card([
                     dbc.CardBody([
                         html.H6("Geschlechterverteilung", className="card-title"),
-                        dcc.Graph(figure=get_dominant_gender_in_branche(entity, df), config={"displayModeBar": False}, style={"height": "200px"}, className="w-100"),
+                        dcc.Graph(figure=get_dominant_gender_in_branche(entity, timed_branchen_data), config={"displayModeBar": False}, style={"height": "200px"}, className="w-100"),
                     ], className="persona-card")
                 ], className="h-100")
             ], md=4, sm=12, className="mb-3"),
@@ -1220,7 +1154,7 @@ def render_detailview5(category, timed_transaction_data, timed_branchen_data, ti
                     dbc.CardBody([
                         html.H6("Durchschnittlicher Credit Score", className="card-title"),
                         dcc.Graph(
-                            figure=erstelle_kredit_score_anzeige(get_average_credit_score_in_branche(entity, df)),
+                            figure=erstelle_kredit_score_anzeige(get_average_credit_score_in_branche(entity, timed_branchen_data)),
                             config={"displayModeBar": False},
                             style={"height": "200px"},
                             className="w-100"
@@ -1259,94 +1193,14 @@ def update_detailView(category, entity):
         return value, value, value, value
     return "", "", "", ""
 
-def calculate_avg_income_for_branche(mcc_code, timed_transaction_data):
+
+def calculate_avg_income_for_branche(mcc_code, timed_branchen_data):
    
 
     users_data['id'] = users_data['id'].astype(str)
 
-    # Nach Datum und Branche filtern
-    filtered_tx = timed_transaction_data[
-        (timed_transaction_data['mcc'] == int(mcc_code))
-    ]
-
     # Kunden-IDs
-    unique_clients = filtered_tx['client_id'].dropna().astype(str).unique()
-
-    matching_users = users_data[users_data['id'].astype(str).isin(unique_clients)]
-
-    # Durchschnitt berechnen
-    avg_income = matching_users['per_capita_income'].mean()
-
-    # Errorhandling
-    if pd.isna(avg_income):
-        return "Keine Daten"
-
-    # kürzen
-    t_income = int(avg_income * 100) / 100
-
-    # Ergebnis mit $ zurückgeben
-    return f"{t_income:.2f} $"
-
-
-def income_category_bar_component(avg_income_str):
-    # Wenn keine Daten vorhanden sind
-    if avg_income_str == "Keine Daten":
-        return html.P("Keine Daten verfügbar.")
-
-    # Zahl aus dem String holen (z. B. "12345.67 $")
-    income_value = float(avg_income_str.replace(" $", "").replace(",", ""))
-
-    # Skala von 0 bis 300.000$
-    scale_min = 0
-    scale_max = 300000
-
-    # Position auf der Skala berechnen (in %)
-    relative_pos = ((income_value - scale_min) / (scale_max - scale_min)) * 100
-    relative_pos = max(0, min(relative_pos, 100))  # Begrenzen zwischen 0 und 100 %
-
-    color_segments, categories = get_income_category_colors_and_labels(EINKOMMENSKLASSEN)
-
-
-
-    return html.Div([
-        # Farbige Skala und Pfeil anzeigen
-        html.Div([
-            html.Div(
-                [html.Div(style={
-                    "flex": "1",
-                    "height": "10px",
-                    "backgroundColor": color
-                }) for color in color_segments],
-                style={"display": "flex", "width": "100%"}
-            ),
-            html.Div("▲", style={
-                "position": "absolute",
-                "left": f"{relative_pos:.2f}%",
-                "transform": "translateX(-50%)",
-                "top": "-12px",
-                "fontSize": "1.2rem"
-            })
-        ], style={"position": "relative", "height": "25px", "marginTop": "10px"}),
-
-        # Legende mit den Einkommensgruppen
-        html.Ul([
-            html.Li(cat, style={"fontSize": "0.8rem"})
-            for cat in categories
-        ], style={"paddingLeft": "1rem", "marginTop": "10px"})
-    ])
-    
-def calculate_avg_income_for_branche(mcc_code, timed_transaction_data):
-   
-
-    users_data['id'] = users_data['id'].astype(str)
-
-    # Nach Datum und Branche filtern
-    filtered_tx = timed_transaction_data[
-        (timed_transaction_data['mcc'] == int(mcc_code))
-    ]
-
-    # Kunden-IDs
-    unique_clients = filtered_tx['client_id'].dropna().astype(str).unique()
+    unique_clients = timed_branchen_data['client_id'].dropna().astype(str).unique()
 
     matching_users = users_data[users_data['id'].astype(str).isin(unique_clients)]
 
@@ -1370,19 +1224,11 @@ def income_category_bar_component(avg_income_str, start_date, end_date, mcc_code
     income_value = float(avg_income_str.replace(" $", "").replace(",", ""))
 
     # hole alle Kunden in der Branche und Zeitraum
-    timed_branchen_data['date'] = pd.to_datetime(timed_branchen_data['date'])
-    df_tx = timed_branchen_data[
-        (timed_branchen_data['date'] >= pd.to_datetime(start_date)) &
-        (timed_branchen_data['date'] <= pd.to_datetime(end_date)) &
-        (timed_branchen_data['mcc'] == int(mcc_code)) &
-        (timed_branchen_data['client_id'].notna())
-    ]
-
-    if df_tx.empty:
+    if timed_branchen_data.empty:
         return html.P("Keine Transaktionsdaten verfügbar.")
 
     # hole die passenden User-Daten
-    unique_clients = df_tx['client_id'].astype(str).unique()
+    unique_clients = timed_branchen_data['client_id'].astype(str).unique()
     matched_users = users_data[users_data['id'].astype(str).isin(unique_clients)]
 
     if matched_users.empty or 'per_capita_income' not in matched_users.columns:
@@ -1460,27 +1306,19 @@ def income_category_bar_component(avg_income_str, start_date, end_date, mcc_code
         ], style={"paddingLeft": "1rem", "marginTop": "10px"})
     ])
 
-def calculate_mean_monthly_spending_per_customer(mcc_code, timed_transaction_data):
-    df = timed_transaction_data
+def calculate_mean_monthly_spending_per_customer(mcc_code, timed_branchen_data):
 
-    df['date'] = pd.to_datetime(df['date'])
-
-    df = df[
-        (df['mcc'] == int(mcc_code)) &
-        (df['client_id'].notna())
-    ]
-
-    if df.empty:
+    if timed_branchen_data.empty:
         return "Keine Daten"
 
     # Neue Spalte: Jahr + Monat
-    df['year_month'] = df['date'].dt.to_period('M')
+    timed_branchen_data['year_month'] = timed_branchen_data['date'].dt.to_period('M')
 
     # Summe pro Kunde
-    total_by_client = df.groupby('client_id')['amount'].sum()
+    total_by_client = timed_branchen_data.groupby('client_id')['amount'].sum()
 
     # Anzahl Monate pro Kunde
-    months_by_client = df.groupby('client_id')['year_month'].nunique()
+    months_by_client = timed_branchen_data.groupby('client_id')['year_month'].nunique()
 
     # Durchschnitt pro Monat
     monthly_avg = total_by_client / months_by_client
@@ -1496,28 +1334,19 @@ def calculate_mean_monthly_spending_per_customer(mcc_code, timed_transaction_dat
 
     return f"{truncated:.2f} $"
 
-def get_customer_spending_distribution_pie_chart(start_date, end_date, current_mcc_code, timed_transaction_data):
-    df = timed_transaction_data
-    df['date'] = pd.to_datetime(df['date'])
-
-    df = df[
-        (df['date'] >= pd.to_datetime(start_date)) &
-        (df['date'] <= pd.to_datetime(end_date)) &
-        (df['client_id'].notna())
-    ]
-
-    if df.empty:
+def get_customer_spending_distribution_pie_chart(start_date, end_date, current_mcc_code, timed_branchen_data):
+    if timed_branchen_data.empty:
         return go.Figure()
 
     #  Kunden filtern → nur Kunden aktiv in aktueller Branche
-    df_branche = df[df['mcc'] == int(current_mcc_code)]
+    df_branche = timed_branchen_data[timed_branchen_data['mcc'] == int(current_mcc_code)]
     kunden_in_branche = df_branche['client_id'].unique()
 
     if len(kunden_in_branche) == 0:
         return go.Figure()
 
     # Transaktionen aller MCCs dieser Kunden
-    df_clients = df[df['client_id'].isin(kunden_in_branche)]
+    df_clients = timed_branchen_data[timed_branchen_data['client_id'].isin(kunden_in_branche)]
     df_clients['year_month'] = df_clients['date'].dt.to_period('M')
 
     # Anzahl Monate pro Kunde (egal wo aktiv)
@@ -1567,8 +1396,10 @@ def get_customer_spending_distribution_pie_chart(start_date, end_date, current_m
         )
         ids.append("Sonstiges")
 
-    num_segments = len(values)
-    blues_colors = px.colors.sample_colorscale("Blues", [i/(num_segments-1) for i in range(num_segments)])
+    if len(values) > 1:
+        blues_colors = px.colors.sample_colorscale("Blues", [i/(len(values)-1) for i in range(len(values))])
+    else:
+        blues_colors = [px.colors.sample_colorscale("Blues", [0.5])[0]]
 
     fig = go.Figure(
         data=[go.Pie(
@@ -1597,24 +1428,16 @@ def get_customer_spending_distribution_pie_chart(start_date, end_date, current_m
 
 
 
-def get_dominant_gender_in_branche(mcc_code, timed_transaction_data, show_full_distribution=False):
-    # Daten kopieren
-    df = timed_transaction_data
+def get_dominant_gender_in_branche(mcc_code, timed_branchen_data, show_full_distribution=False):
    
     users_data['id'] = users_data['id'].astype(str)
 
-    # Transaktionen nach Datum und Branche filtern
-    df = df[
-        (df['mcc'] == int(mcc_code)) &
-        (df['client_id'].notna())
-    ]
-
     # Wenn keine Transaktionen
-    if df.empty:
+    if timed_branchen_data.empty:
         return "Keine Transaktionen im Zeitraum/MCC"
 
     # Kunden holen
-    unique_clients = df['client_id'].astype(str).unique()
+    unique_clients = timed_branchen_data['client_id'].astype(str).unique()
     matched_users = users_data[users_data['id'].isin(unique_clients)]
 
   
@@ -1653,15 +1476,7 @@ def get_dominant_gender_in_branche(mcc_code, timed_transaction_data, show_full_d
 
 def get_average_age_in_branche(start_date, end_date, mcc_code, timed_branchen_data):
     df = timed_branchen_data
-    df['date'] = pd.to_datetime(df['date'])
     users_data['id'] = users_data['id'].astype(str)
-
-    df = df[
-        (df['date'] >= pd.to_datetime(start_date)) &
-        (df['date'] <= pd.to_datetime(end_date)) &
-        (df['mcc'] == int(mcc_code)) &
-        (df['client_id'].notna())
-    ]
 
     if df.empty:
         return None
@@ -1692,21 +1507,13 @@ def get_average_age_in_branche(start_date, end_date, mcc_code, timed_branchen_da
     return int(mean_age * 100) / 100
 
 def create_age_histogram(start_date, end_date, mcc_code, timed_branchen_data):
-    df = timed_branchen_data
-    df['date'] = pd.to_datetime(df['date'])
+    timed_branchen_data['date'] = pd.to_datetime(timed_branchen_data['date'])
     users_data['id'] = users_data['id'].astype(str)
 
-    df = df[
-        (df['date'] >= pd.to_datetime(start_date)) &
-        (df['date'] <= pd.to_datetime(end_date)) &
-        (df['mcc'] == int(mcc_code)) &
-        (df['client_id'].notna())
-    ]
-
-    if df.empty:
+    if timed_branchen_data.empty:
         return go.Figure()
 
-    unique_clients = df['client_id'].astype(str).unique()
+    unique_clients = timed_branchen_data['client_id'].astype(str).unique()
     matched_users = users_data[users_data['id'].isin(unique_clients)]
 
     if 'birth_year' not in matched_users.columns or 'birth_month' not in matched_users.columns:
@@ -1742,24 +1549,16 @@ def create_age_histogram(start_date, end_date, mcc_code, timed_branchen_data):
 
 
 
-def get_average_credit_score_in_branche(mcc_code, timed_transaction_data):
-    # Daten kopieren
-    df = timed_transaction_data
+def get_average_credit_score_in_branche(mcc_code, timed_branchen_data):
 
     users_data['id'] = users_data['id'].astype(str)
 
-    # Nach Branche filtern
-    df = df[
-        (df['mcc'] == int(mcc_code)) &
-        (df['client_id'].notna())
-    ]
-
     # Wenn keine Daten, dann nichts zurückgeben
-    if df.empty:
+    if timed_branchen_data.empty:
         return None
 
     # Kunden-IDs sammeln
-    unique_clients = df['client_id'].astype(str).unique()
+    unique_clients = timed_branchen_data['client_id'].astype(str).unique()
 
     # Passende Nutzer finden
     matched_users = users_data[users_data['id'].isin(unique_clients)]
@@ -1811,24 +1610,14 @@ def erstelle_kredit_score_anzeige(kredit_score_wert):
     return diagramm
 
 
-def plot_card_type_distribution_by_brand(mcc_code, timed_transaction_data , show_percentage=False):
-    # Kopiere die Transaktions- und Kartendaten
-    df_tx = timed_transaction_data
-    df_cards = cards_data
-
-    # Filtere nach Datum, Branche (MCC) und gültigen IDs
-    df_tx = df_tx[
-        (df_tx['mcc'] == int(mcc_code)) &
-        (df_tx['client_id'].notna()) &
-        (df_tx['card_id'].notna())
-    ]
+def plot_card_type_distribution_by_brand(mcc_code, timed_branchen_data , show_percentage=False):
 
     # Wenn keine Daten vorhanden sind, gib leere Grafik zurück
-    if df_tx.empty:
+    if timed_branchen_data.empty:
         return go.Figure()
 
     # Verbinde Transaktionen mit Karteninformationen
-    merged = df_tx.merge(df_cards, left_on='card_id', right_on='id', how='left')
+    merged = timed_branchen_data.merge(cards_data, left_on='card_id', right_on='id', how='left')
 
     # Wenn keine relevanten Daten vorhanden sind, gib leere Grafik zurück
     if merged.empty or 'card_type' not in merged.columns or 'card_brand' not in merged.columns:
