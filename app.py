@@ -123,27 +123,26 @@ app.layout = dbc.Container([
     dbc.Row([
         dbc.Col([
             dbc.Col([
-                # dcc.DatePickerRange(
-                #     id='date-range-start',
-                #     min_date_allowed=min_date,
-                #     max_date_allowed=max_date,
-                #     start_date=min_date,
-                #     end_date=max_date,
-                #     className="datepicker"
-                # ),
-                dcc.Dropdown(
-                    id='year_dropdown',
-                    options=[{"label": y, "value": y} for y in years],
-                    value=years[0],
-                    className="main-dropdown"
-                ),
-                dcc.Dropdown(
-                    id='month_dropdown',
-                    options=[{"label": m, "value": m} for m in months],
-                    value=months[0],
-                    className="main-dropdown"
-                ),
-            ], width=12, className="gap-5" ,id='zeitraum_container'),
+                html.Div([
+                    dbc.Col([
+                        dcc.Dropdown(
+                            id='year_dropdown',
+                            options=[{"label": y, "value": y} for y in years],
+                            value=years[0],
+                            className="time-dropdown",
+                        ),
+                    ], width=5),
+                    dbc.Col([
+                        dcc.Dropdown(
+                            id='month_dropdown',
+                            options=[{"label": m, "value": m} for m in months],
+                            value=months[0],
+                            className="time-dropdown",
+                        ),
+                    ], width=5),
+                ], className="d-flex gap-2 w-100 justify-content-start"),
+
+            ], width=12, id='zeitraum_container'),
             dbc.Col([
                 dbc.Col([
                     dcc.Dropdown(['Unternehmen', 'Branchen'], 'Branchen', id='category_dropdown',  className="main-dropdown")

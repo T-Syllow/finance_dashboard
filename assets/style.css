@@ -266,6 +266,10 @@
     background-color: #0242a2;
 }
 
+.time-dropdown {
+    width: 100%;
+}
+
 .persona_card {
 
     height: 200px;
