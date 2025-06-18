@@ -1,6 +1,7 @@
 # Imports
 import json
 import locale
+import os
 from urllib.request import urlopen
 from dash import Dash, State, html, dash_table, Input, Output, callback, dcc
 import pandas as pd
@@ -11,6 +12,8 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 from data_access import load_transactions
+import glob
+
 
 
 with urlopen('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json') as response:
@@ -95,6 +98,17 @@ with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
     mcc_dict = json.load(f)
 mcc_codes_data = pd.DataFrame(list(mcc_dict.items()), columns=['mcc_code', 'description'])
 
+# Annahme: Dateien heißen transactions_YYYY_MM.parquet
+parquet_files = glob.glob(os.path.join(parquet_folder, "transactions_*.parquet"))
+import re
+year_months = set()
+for f in parquet_files:
+    match = re.search(r'transactions_(\d{4})_(\d{2})\.parquet', f)
+    if match:
+        year_months.add((match.group(1), match.group(2)))
+years = sorted({y for y, m in year_months})
+months = sorted({m for y, m in year_months})
+
 date_col = pd.read_parquet(transaction_file, columns=['date'])
 min_date = pd.to_datetime(date_col['date']).min().strftime("%Y-%m-%d")
 max_date = pd.to_datetime(date_col['date']).max().strftime("%Y-%m-%d")
@@ -109,13 +123,25 @@ app.layout = dbc.Container([
     dbc.Row([
         dbc.Col([
             dbc.Col([
-                dcc.DatePickerRange(
-                    id='date-range-start',
-                    min_date_allowed=min_date,
-                    max_date_allowed=max_date,
-                    start_date=min_date,
-                    end_date=max_date,
-                    className="datepicker"
+                # dcc.DatePickerRange(
+                #     id='date-range-start',
+                #     min_date_allowed=min_date,
+                #     max_date_allowed=max_date,
+                #     start_date=min_date,
+                #     end_date=max_date,
+                #     className="datepicker"
+                # ),
+                dcc.Dropdown(
+                    id='year_dropdown',
+                    options=[{"label": y, "value": y} for y in years],
+                    value=years[0],
+                    className="main-dropdown"
+                ),
+                dcc.Dropdown(
+                    id='month_dropdown',
+                    options=[{"label": m, "value": m} for m in months],
+                    value=months[0],
+                    className="main-dropdown"
                 ),
             ], width=12, className="gap-5" ,id='zeitraum_container'),
             dbc.Col([
@@ -198,40 +224,52 @@ app.layout = dbc.Container([
 
 @app.callback(
     Output('timed_transaction_data', 'data'),
-    Input('date-range-start', 'start_date'),
-    Input('date-range-start', 'end_date'),
+    Input('year_dropdown', 'value'),
+    Input('month_dropdown', 'value'),
 )
-def update_timed_transaction_data(start_date, end_date):
-    df = load_transactions(transaction_file, start_date, end_date)
+def update_timed_transaction_data(selected_year, selected_month):
+    if not selected_year or not selected_month:
+        return []
+    parquet_path = f"./parquet_data/transactions_{selected_year}_{str(selected_month).zfill(2)}.parquet"
+    if not os.path.exists(parquet_path):
+        return []
+    df = pd.read_parquet(parquet_path)
     return df.to_dict('records')
 
 @app.callback(
     Output('timed_branchen_transaction_data', 'data'),
-    Input('date-range-start', 'start_date'),
-    Input('date-range-start', 'end_date'),
-    Input('category_dropdown', 'value'),  # Die ausgewählte Branche (MCC)
-    Input('entity_dropdown', 'value')  # Die ausgewählte Branche (MCC)
+    Input('year_dropdown', 'value'),
+    Input('month_dropdown', 'value'),
+    Input('category_dropdown', 'value'),  # Branche oder Unternehmen
+    Input('entity_dropdown', 'value')     # Die ausgewählte Branche (MCC)
 )
-def update_timed_branchen_transaction_data(start_date, end_date, category, entity):
-    if category == 'Branchen' and entity is not None:
-        df = load_transactions(transaction_file, start_date, end_date, mcc=entity)
+def update_timed_branchen_transaction_data(selected_year, selected_month, category, entity):
+    if category == 'Branchen' and entity is not None and selected_year and selected_month:
+        parquet_path = f"./parquet_data/transactions_{selected_year}_{str(selected_month).zfill(2)}.parquet"
+        if not os.path.exists(parquet_path):
+            return []
+        df = pd.read_parquet(parquet_path)
+        df = df[df['mcc'] == int(entity)]
         return df.to_dict('records')
     return []
     
 @app.callback(
     Output('timed_unternehmen_transaction_data', 'data'),
-    Input('date-range-start', 'start_date'),
-    Input('date-range-start', 'end_date'),
-    Input('category_dropdown', 'value'),  # Die ausgewählte Branche (MCC)
-    Input('entity_dropdown', 'value')  # Die ausgewählte Branche (MCC)
+    Input('year_dropdown', 'value'),
+    Input('month_dropdown', 'value'),
+    Input('category_dropdown', 'value'),  # Die ausgewählte Kategorie
+    Input('entity_dropdown', 'value')     # Die ausgewählte Unternehmen-ID
 )
-def update_timed_unternehmen_transaction_data(start_date, end_date, category, entity):
+def update_timed_unternehmen_transaction_data(selected_year, selected_month, category, entity):
     if category == 'Unternehmen':
-        if entity is None:
-            return []  # Keine Daten, wenn kein Unternehmen ausgewählt ist
+        if entity is None or not selected_year or not selected_month:
+            return []  # Keine Daten, wenn kein Unternehmen oder Zeitraum ausgewählt ist
 
-        # Nutze die ausgelagerte Funktion für gefiltertes Laden
-        df = load_transactions(transaction_file, start_date, end_date, merchant_id=entity)
+        parquet_path = f"./parquet_data/transactions_{selected_year}_{str(selected_month).zfill(2)}.parquet"
+        if not os.path.exists(parquet_path):
+            return []
+        df = pd.read_parquet(parquet_path)
+        df = df[df['merchant_id'] == int(entity)]
         return df.to_dict('records')
     return []
 
@@ -537,7 +575,7 @@ def toggle_class4(n1, n2, current_class):
     else:
         return "h-100 position-absolute left-0 col-12 top-100-percent"
 
-def process_branchen_data(df, timed_branchen_data, entity, start_date, end_date):
+def process_branchen_data(timed_branchen_data):
     timed_branchen_data["year"] = pd.to_datetime(timed_branchen_data["date"]).dt.year
     umsatz_Jahr_Merchant = timed_branchen_data.groupby(["year", "merchant_id"])["amount"].sum().reset_index(name="Umsatz_im_Jahr")
     umsatz_pro_merchant = umsatz_Jahr_Merchant.groupby("merchant_id")["Umsatz_im_Jahr"].sum().reset_index(name="gesamtumsatz")
@@ -571,14 +609,14 @@ def create_branchen_charts(umsatz_Jahr_Merchant, top_5, flop_5):
     Output("detail-view", "children"),
     Input("category_dropdown", "value"),
     Input("entity_dropdown", "value"),
-    Input("date-range-start", "start_date"),
-    Input("date-range-start", "end_date"),
+    Input('year_dropdown', 'value'),
+    Input('month_dropdown', 'value'),
     Input('timed_transaction_data', 'data'),
     Input('timed_unternehmen_transaction_data', 'data'),
     Input('timed_branchen_transaction_data', 'data'),
 
 )
-def render_detailview(category, entity, start_date_first, end_date_first, timed_transaction_data, timed_unternehmen_data, timed_branchen_data):
+def render_detailview(category, entity, selected_year, selected_month, timed_transaction_data, timed_unternehmen_data, timed_branchen_data):
     if timed_transaction_data is None:
         return dbc.Alert("Keine Transaktionsdaten verfügbar.", color="warning")
 
@@ -591,8 +629,8 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         
         gesamt_ausgaben_pro_client = pd.read_parquet("./parquet_data/gesamt_ausgaben_pro_client.parquet")
         # =======================
-        
-        umsatz_Jahr_Merchant, umsatz_pro_merchant = process_branchen_data(df, timed_branchen_data, entity, start_date_first, end_date_first)
+
+        umsatz_Jahr_Merchant, umsatz_pro_merchant = process_branchen_data(timed_branchen_data)
         top_5 = umsatz_pro_merchant.nlargest(5, 'gesamtumsatz')
         flop_5 = umsatz_pro_merchant.nsmallest(5, 'gesamtumsatz')
         fig1, fig2 = create_branchen_charts(umsatz_Jahr_Merchant, top_5, flop_5)
@@ -650,7 +688,6 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
         Marktkapitalisierung = umsatz_pro_merchant["gesamtumsatz"].sum()
         Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
-        print("Marktkapitalisierung: ", Marktkapitalisierung)
 
         # =====================================================================================
 
@@ -663,8 +700,6 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
         DurchschnittTransaktionenProKäufer = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        print("Durchschnitt der Transaktionen pro Käufer: ", DurchschnittTransaktionenProKäufer)
-
 
         # =====================================================================================
 
@@ -673,7 +708,6 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         DurchschnittTransaktionshöhe = timed_branchen_data['amount'].mean()
         DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} $ ".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        print("Durchschnittliche Transaktionshöhe: ", DurchschnittTransaktionshöhe)
 
         # =====================================================================================
         
@@ -685,7 +719,6 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         ConsumerMoneySpent= (DurchschnittBranche / Durchschnitt_gesamt) * 100
         ConsumerMoneySpent = f"{ConsumerMoneySpent:,.2f} % ".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        print("Consumer Money Spent (%):", ConsumerMoneySpent)
 
         # =====================================================================================
 
@@ -698,22 +731,53 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
 
         if not timed_branchen_data.empty:
             timed_branchen_data['date'] = pd.to_datetime(timed_branchen_data['date'])
-            timed_branchen_data['year'] = timed_branchen_data['date'].dt.year
+            timed_branchen_data['month'] = timed_branchen_data['date'].dt.month
 
-            start_year = pd.to_datetime(start_date_first).year
-            end_year = pd.to_datetime(end_date_first).year
+            # Umsatz pro Monat im ausgewählten Jahr
+            umsatz_pro_monat = timed_branchen_data.groupby('month')['amount'].sum().sort_index()
 
-            umsatz_pro_jahr = timed_branchen_data.groupby('year')['amount'].sum()
-            print("Umsatz pro Jahr:", umsatz_pro_jahr)
+            # Monatliches Wachstum berechnen (optional)
+            umsatzwachstum_display = "n/a"
 
-            if start_year in umsatz_pro_jahr.index and end_year in umsatz_pro_jahr.index:
-                umsatz_anfang = umsatz_pro_jahr.loc[start_year]
-                umsatz_ende = umsatz_pro_jahr.loc[end_year]
-                print("Umsatz Startjahr:", umsatz_anfang)
-                print("Umsatz Endjahr:", umsatz_ende)
-                if umsatz_anfang != 0:
-                    umsatzwachstum = ((umsatz_ende - umsatz_anfang) / umsatz_anfang) * 100
-                    umsatzwachstum_display = f"{umsatzwachstum:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
+            # Jahr und Monat als int
+            selected_year_int = int(selected_year)
+            selected_month_int = int(selected_month)
+
+            # Umsatz im aktuellen Zeitraum
+            gesamt_umsatz = timed_branchen_data['amount'].sum()
+
+            # Prüfe, ob ein Monat ausgewählt ist (Monatsvergleich) oder nur das Jahr (Jahresvergleich)
+            if selected_year and selected_month:
+                # Vergleich mit gleichem Monat im Vorjahr
+                parquet_path_prev = f"./parquet_data/transactions_{selected_year_int - 1}_{str(selected_month_int).zfill(2)}.parquet"
+                if os.path.exists(parquet_path_prev):
+                    df_prev = pd.read_parquet(parquet_path_prev)
+                    # Filtere auf gleiche Branche
+                    df_prev = df_prev[df_prev['mcc'] == int(entity)]
+                    umsatz_vorjahr = df_prev['amount'].sum()
+                    if umsatz_vorjahr != 0:
+                        umsatzwachstum = ((gesamt_umsatz - umsatz_vorjahr) / umsatz_vorjahr) * 100
+                        umsatzwachstum_display = f"{umsatzwachstum:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
+                    else:
+                        umsatzwachstum_display = "n/a"
+                else:
+                    umsatzwachstum_display = "n/a"
+            elif selected_year:
+                # Vergleich mit Vorjahr (Jahresvergleich)
+                parquet_path_prev = f"./parquet_data/transactions_{selected_year_int - 1}_{str(selected_month_int).zfill(2)}.parquet"
+                parquet_files_prev_year = [f for f in os.listdir("./parquet_data/") if f.startswith(f"transactions_{selected_year_int - 1}_")]
+                if parquet_files_prev_year:
+                    # Alle Monatsdateien des Vorjahres laden und summieren
+                    umsatz_vorjahr = 0
+                    for file in parquet_files_prev_year:
+                        df_prev = pd.read_parquet(os.path.join("./parquet_data/", file))
+                        df_prev = df_prev[df_prev['mcc'] == int(entity)]
+                        umsatz_vorjahr += df_prev['amount'].sum()
+                    if umsatz_vorjahr != 0:
+                        umsatzwachstum = ((gesamt_umsatz - umsatz_vorjahr) / umsatz_vorjahr) * 100
+                        umsatzwachstum_display = f"{umsatzwachstum:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
+                    else:
+                        umsatzwachstum_display = "n/a"
                 else:
                     umsatzwachstum_display = "n/a"
             else:
@@ -783,6 +847,8 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
         gesamt_ausgaben_pro_client = pd.read_parquet("./parquet_data/gesamt_ausgaben_pro_client.parquet")
 
         # Umsatz pro Monat berechnen
+        if timed_unternehmen_data.empty or 'date' not in timed_unternehmen_data.columns:
+            return dbc.Alert("Keine Transaktionsdaten oder kein Datum für das Unternehmen verfügbar.", color="warning")
         timed_unternehmen_data['month'] = pd.to_datetime(timed_unternehmen_data['date']).dt.to_period('M')
         umsatz_pro_monat = timed_unternehmen_data.groupby('month')['amount'].sum().reset_index()
         umsatz_pro_monat['month'] = umsatz_pro_monat['month'].astype(str)  # Monat in String umwandeln für die Darstellung
@@ -867,7 +933,6 @@ def render_detailview(category, entity, start_date_first, end_date_first, timed_
             unternehmen_mcc = int(unternehmen_mcc)
         else:
             unternehmen_mcc = None
-        print("MCC des Unternehmens:", unternehmen_mcc)
         GesamtMarktkapitalisierungBranche = df[df['mcc'] == unternehmen_mcc]["amount"].sum()
         
         branchenbeschreibung = mcc_codes_data.loc[
@@ -1059,11 +1124,10 @@ def render_detailview4(category, timed_branchen_data, timed_unternehmen_data): #
     Input("category_dropdown", "value"),
     Input('timed_branchen_transaction_data', 'data'),
     Input("entity_dropdown", "value"),
-    Input("date-range-start", "start_date"),
-    Input("date-range-start", "end_date"),
+    Input("year_dropdown", "value"),
+    Input("month_dropdown", "value"),
 )
-def render_detailview5(category, timed_branchen_data, entity, start_date_first, end_date_first):
-
+def render_detailview5(category, timed_branchen_data, entity, selected_year, selected_month):
     if timed_branchen_data is None:
         return dbc.Alert("Keine Transaktionsdaten verfügbar.", color="warning")
 
@@ -1074,45 +1138,37 @@ def render_detailview5(category, timed_branchen_data, entity, start_date_first, 
         return dbc.Alert("Keine Datumsinformationen verfügbar.", color="warning")
 
     if category == 'Branchen' and timed_branchen_data is not None:
-        
         persona_cards = dbc.Row([
 
             dbc.Col([
                 dbc.Card([
                     dbc.CardBody([
                         html.H6("Durchschnittsalter der Kunden", className="card-title"),
-                        
-                        # Zahl
                         html.P(
-                            f"{get_average_age_in_branche(start_date_first, end_date_first, entity, timed_branchen_data)} Jahre",
+                            f"{get_average_age_in_branche(selected_year, selected_month, entity, timed_branchen_data)} Jahre",
                             className="fs-4 fw-bold"
                         ),
-                        
-
-                        # Histogramm darunter
                         dcc.Graph(
-                            figure=create_age_histogram(start_date_first, end_date_first, entity, timed_branchen_data),
+                            figure=create_age_histogram(selected_year, selected_month, entity, timed_branchen_data),
                             config={"displayModeBar": False},
                             style={"height": "200px"},
                             className="w-100"
                         ),
-
                         html.P("Hinweis: Altersverteilung aller Kunden, die im Zeitraum in dieser Branche aktiv waren.", className="info")
                     ], className="persona-card")
                 ], className="h-100")
             ], md=4, sm=12, className="mb-3"),
             dbc.Col([
-                    dbc.Card([
-                        dbc.CardBody([
-                            html.H6("Durchschnittliches Einkommen ($)", className="card-title"),
-                            html.P(
-                                avg_income := calculate_avg_income_for_branche(entity, timed_branchen_data),
-                                className="card-text fw-bold"
-                            ),
-                                    income_category_bar_component(avg_income, start_date_first, end_date_first, entity, timed_branchen_data)
-
-                        ], className="persona-card")
-                    ], className="h-100")
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Durchschnittliches Einkommen ($)", className="card-title"),
+                        html.P(
+                            avg_income := calculate_avg_income_for_branche(entity, timed_branchen_data),
+                            className="card-text fw-bold"
+                        ),
+                        income_category_bar_component(avg_income, selected_year, selected_month, entity, timed_branchen_data)
+                    ], className="persona-card")
+                ], className="h-100")
             ], md=4, sm=12, className="mb-3"),
             dbc.Col([
                 dbc.Card([
@@ -1123,7 +1179,7 @@ def render_detailview5(category, timed_branchen_data, entity, start_date_first, 
                             className="card-text"
                         ),
                         dcc.Graph(
-                            figure=get_customer_spending_distribution_pie_chart(start_date_first, end_date_first, entity, timed_branchen_data),
+                            figure=get_customer_spending_distribution_pie_chart(selected_year, selected_month, entity, timed_branchen_data),
                             config={"displayModeBar": False},
                             style={"height": "200px"},
                             className="w-100"
@@ -1148,7 +1204,6 @@ def render_detailview5(category, timed_branchen_data, entity, start_date_first, 
                     ], className="persona-card")
                 ], className="h-100")
             ], md=4, sm=12, className="mb-3"),
-                        
             dbc.Col([
                 dbc.Card([
                     dbc.CardBody([
@@ -1163,10 +1218,10 @@ def render_detailview5(category, timed_branchen_data, entity, start_date_first, 
                 ], className="h-100")
             ], md=4, sm=12, className="mb-3"),
         ], className="g-2")
-    
+
         return dbc.Col([
-                    persona_cards,
-                ], width=12, className="d-flex flex-column gap-3 p-3 pb-5")
+            persona_cards,
+        ], width=12, className="d-flex flex-column gap-3 p-3 pb-5")
 
 @app.callback(
     Output("branche_title", "children"),
@@ -1423,7 +1478,6 @@ def get_customer_spending_distribution_pie_chart(start_date, end_date, current_m
         margin=dict(t=50, b=20, l=20, r=20),
     )
 
-    print(f"DEBUG: Ø Monatsausgaben pro Kunde (nur aktiv in {current_mcc_code}): {total_avg_spending:.2f} $")
     return fig
 
 
@@ -1474,7 +1528,7 @@ def get_dominant_gender_in_branche(mcc_code, timed_branchen_data, show_full_dist
     fig.update_traces(textposition='inside', textinfo='percent+label')
     return fig
 
-def get_average_age_in_branche(start_date, end_date, mcc_code, timed_branchen_data):
+def get_average_age_in_branche(selected_year, selected_month, mcc_code, timed_branchen_data):
     df = timed_branchen_data
     users_data['id'] = users_data['id'].astype(str)
 
@@ -1497,7 +1551,12 @@ def get_average_age_in_branche(start_date, end_date, mcc_code, timed_branchen_da
     if matched_users.empty:
         return None
 
-    reference_date = pd.to_datetime(end_date)
+    # Nutze das ausgewählte Jahr und den Monat als Referenzdatum
+    try:
+        reference_date = pd.Timestamp(year=int(selected_year), month=int(selected_month), day=1)
+    except Exception:
+        return None
+
     matched_users['age'] = matched_users['birthdate'].apply(lambda b: (reference_date - b).days // 365)
 
     if matched_users['age'].empty:
@@ -1506,7 +1565,7 @@ def get_average_age_in_branche(start_date, end_date, mcc_code, timed_branchen_da
     mean_age = matched_users['age'].mean()
     return int(mean_age * 100) / 100
 
-def create_age_histogram(start_date, end_date, mcc_code, timed_branchen_data):
+def create_age_histogram(selected_year, selected_month, mcc_code, timed_branchen_data):
     timed_branchen_data['date'] = pd.to_datetime(timed_branchen_data['date'])
     users_data['id'] = users_data['id'].astype(str)
 
@@ -1529,7 +1588,12 @@ def create_age_histogram(start_date, end_date, mcc_code, timed_branchen_data):
     if matched_users.empty:
         return go.Figure()
 
-    reference_date = pd.to_datetime(end_date)
+    # Nutze das ausgewählte Jahr und den Monat als Referenzdatum
+    try:
+        reference_date = pd.Timestamp(year=int(selected_year), month=int(selected_month), day=1)
+    except Exception:
+        return go.Figure()
+
     matched_users['age'] = matched_users['birthdate'].apply(lambda b: (reference_date - b).days // 365)
 
     fig = px.histogram(
