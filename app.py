@@ -148,8 +148,6 @@ app.layout = dbc.Container([
                                 {"label": "Letzte 3 Monate", "value": "last_3_months"},
                                 {"label": "Letzte 6 Monate", "value": "last_6_months"},
                                 {"label": "Letztes Jahr", "value": "last_year"},
-                                {"label": "Letzte 2 Jahre", "value": "last_2_years"},
-                                {"label": "Letzte 3 Jahre", "value": "last_3_years"},
                             ],
                             value="last_month",
                             className="time-dropdown",
@@ -254,10 +252,6 @@ def load_all_period_duckdb(year, month, compare_period, parquet_folder="./parque
             periods.append((year + y, (m % 12) + 1))
     elif compare_period == "last_year":
         periods = [(year - 1, m) for m in range(1, 13)]
-    elif compare_period == "last_2_years":
-        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)]
-    elif compare_period == "last_3_years":
-        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)] + [(year - 3, m) for m in range(1, 13)]
     else:
         periods = [(year, month)]
 
@@ -295,10 +289,6 @@ def load_unternehmen_period_duckdb(year, month, compare_period, entity, parquet_
             periods.append((year + y, (m % 12) + 1))
     elif compare_period == "last_year":
         periods = [(year - 1, m) for m in range(1, 13)]
-    elif compare_period == "last_2_years":
-        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)]
-    elif compare_period == "last_3_years":
-        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)] + [(year - 3, m) for m in range(1, 13)]
     else:
         periods = [(year, month)]
 
@@ -337,10 +327,6 @@ def load_branchen_period_duckdb(year, month, compare_period, entity, parquet_fol
             periods.append((year + y, (m % 12) + 1))
     elif compare_period == "last_year":
         periods = [(year - 1, m) for m in range(1, 13)]
-    elif compare_period == "last_2_years":
-        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)]
-    elif compare_period == "last_3_years":
-        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)] + [(year - 3, m) for m in range(1, 13)]
     else:
         periods = [(year, month)]
 
@@ -361,40 +347,6 @@ def load_branchen_period_duckdb(year, month, compare_period, entity, parquet_fol
     df = con.execute(query).df()
     con.close()
     return df
-
-def load_period(year, month, compare_period, parquet_folder="./parquet_data/"):
-    # Erzeuge eine Liste aller (Jahr, Monat)-Kombinationen für den gewählten Zeitraum
-    periods = []
-    year = int(year)
-    month = int(month)
-    if compare_period == "last_month":
-        periods = [(year, month)]
-    elif compare_period == "last_3_months":
-        for i in range(3):
-            y, m = divmod(month - i - 1, 12)
-            periods.append((year + y, (m % 12) + 1))
-    elif compare_period == "last_6_months":
-        for i in range(6):
-            y, m = divmod(month - i - 1, 12)
-            periods.append((year + y, (m % 12) + 1))
-    elif compare_period == "last_year":
-        periods = [(year - 1, m) for m in range(1, 13)]
-    elif compare_period == "last_2_years":
-        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)]
-    elif compare_period == "last_3_years":
-        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)] + [(year - 3, m) for m in range(1, 13)]
-    else:
-        periods = [(year, month)]
-
-    dfs = []
-    for y, m in periods:
-        parquet_path = os.path.join(parquet_folder, f"transactions_{y}_{str(m).zfill(2)}.parquet")
-        if os.path.exists(parquet_path):
-            dfs.append(pd.read_parquet(parquet_path))
-    if dfs:
-        return pd.concat(dfs, ignore_index=True)
-    else:
-        return pd.DataFrame()
 
 @app.callback(
     Output('timed_branchen_transaction_data', 'data'),
