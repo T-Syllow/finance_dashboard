@@ -281,13 +281,16 @@
 
 .Select-control {
     background-color: black !important;
+    color: white !important;
+    font-size: 14px !important;
     transition: 225ms ease-in-out;
     border: solid black !important;
 }
 
 .Select-control:hover {
-    background-color: rgba(0,0,0,0.6);
+    background-color: black !important;
     border: solid rgb(100, 100, 255) !important;
+    color: white !important;
     cursor: pointer;
 }
 
@@ -307,17 +310,17 @@
 }
 
 .Select-menu-outer, .Select-menu {
-    background: #000 !important;
+    background: black !important;
     font-size: 14px !important;
-    color: #fff !important;
+    color: white !important;
 }
 .Select-option {
-    background: #000 !important;
-    color: #fff !important;
+    background: black !important;
+    color: white !important;
     font-size: 14px !important;
 }
 .Select-option.is-focused {
-    background: #222 !important;
+    background: black !important;
 }
 
 table.table thead th {

@@ -131,7 +131,7 @@ app.layout = dbc.Container([
                             value=years[0],
                             className="time-dropdown",
                         ),
-                    ], width=3),
+                    ], width=2),
                     dbc.Col([
                         dcc.Dropdown(
                             id='month_dropdown',
@@ -139,7 +139,7 @@ app.layout = dbc.Container([
                             value=months[0],
                             className="time-dropdown",
                         ),
-                    ], width=3),
+                    ], width=2),
                     dbc.Col([
                         dcc.Dropdown(
                             id='compare_period_dropdown',
