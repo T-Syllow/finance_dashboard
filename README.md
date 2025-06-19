@@ -1,133 +1,87 @@
-# 📊 Projektplan – Visualisierungsdashboard für BlackRock
+# 📊 Finance Dashboard – Installationsanleitung
 
-## GIT PUSHING
-
-git add .
-git commit -m ""
-git push
-
-## 🧩 Aufgabenstellung
-
-### 🔍 Was wird visualisiert?
-Ein datengetriebenes Dashboard zur Analyse und Darstellung von Unternehmens- und Branchendaten für Investmententscheidungen im Auftrag eines BlackRock-Investmentbankers.
+Dieses Dashboard visualisiert Unternehmens- und Branchendaten für Investmententscheidungen.  
+Folge dieser Anleitung, um das Projekt lokal zum Laufen zu bringen.
 
 ---
 
-## 🧠 Geplante Features
+## 🚀 Schnellstart
 
-### 🧱 Dashboard-Struktur
-- Grobes Dashboard-Layout mit Navigation: **Landkarte → Branche → Unternehmen (Zoom)**
-- Klare visuelle Trennung nach Unternehmen & Branche
+### 1. Repository klonen
 
-### 📊 Visualisierungen
-- Umsatzentwicklung nach Branche (Trendvisualisierung)
-- Top 10 umsatzstärkste Branchen
-- Balkendiagramme zu Umsatz & Wachstum
-- Marktanteil pro Unternehmen (filterbar nach Zeitraum)
-- Durchschnittliches Einkommen je Cluster (gering, mittel, reich)
-- Vergleich Onlinekäufe vs. stationäre Käufe
-- Durchschnittlicher Einkaufswert je Branche & Firma
-- Geografische Lage von Händlern (für Naturkatastrophen-Risikoanalyse)
-- Verhältnis zu Einwohnern pro Bundesstaat
+```bash
+git clone <REPO-URL>
+cd finance_dashboard
+```
 
-### 🧩 Interaktionen
-- Filter (Zeitraum, Branche, Unternehmen, Staaten(USA))
-- Drill-Down (von Landkarte zu Branche oder Unternehmen)
-- Tooltip mit Detailinfos
+### 2. Python-Umgebung einrichten (empfohlen)
 
-### 🗃️ Datenquellen
-- CSV-Datei mit 13 Mio. Datensätzen (bereinigt)
-- Unternehmens- und Branchendaten
-- Geo-Informationen (State, Adresse)
-- Transaktionsdaten (inkl. Preis, Art: online/offline)
-- Käufer-Attribute (Einkommen, Debit/Credit, etc.)
+```bash
+python3 -m venv venv
+source venv/bin/activate  # macOS/Linux
+# .\venv\Scripts\activate  # Windows
+```
 
-### ⚙️ Datenverarbeitung
-- Bereinigung (Entfernen von Fraud-Daten)
-- Clustering der Userdaten nach Einkommen
-- Zeitbasierte Aggregation (Monat, Quartal, Jahr)
-- Kategorisierung nach Branche und Firma
-- Verknüpfung mit geografischen & demografischen Daten
+### 3. Abhängigkeiten installieren
 
----
+```bash
+pip install -r requirements.txt
+```
 
-## 📌 Grobe Teilaufgaben (Pseudo-Backlog)
+Falls keine `requirements.txt` vorhanden ist, installiere die wichtigsten Pakete manuell:
 
-| Priorität | Aufgabe                               | Erledigt? |
-|-----------|----------------------------------------|------------------|
-| Hoch      | Datenbereinigung                       | ❌ Nein          |
-| Hoch      | UI/UX-Konzept                          | ✅ Ja            |
-| Hoch      | Dashboard-Layout festlegen             | ❌ Nein          |
-| Mittel    | Datenanalyse & Clustering              | ❌ Nein          |
-| Mittel    | Unternehmens-/Branchenansicht          | ❌ Nein          |
-| Mittel    | Geovisualisierung Startseite           | ❌ Nein          |
-| Niedrig   | Integration der Online-/Offline-Analyse| ❌ Nein          |
-| Niedrig   | Darstellung der Kaufverhalten-Cluster  | ❌ Nein          |
+```bash
+pip install dash dash-bootstrap-components pandas plotly duckdb
+```
+
+### 4. Daten vorbereiten
+
+- Lege deine Parquet-Dateien im Ordner `parquet_data/` ab.
+- Stelle sicher, dass die Dateien wie folgt benannt sind:
+  - `transactions_YYYY_MM.parquet` (z.B. `transactions_2023_01.parquet`)
+- Optional: Führe das Skript `prerender.py` aus, um die Daten vorzubereiten:
+
+```bash
+python prerender.py
+```
+
+### 5. Dashboard starten
+
+```bash
+python app.py
+```
+
+Das Dashboard ist dann erreichbar unter:  
+[http://127.0.0.1:8050](http://127.0.0.1:8050)
 
 ---
 
-## 🏗️ Projektinfrastruktur
+## ⚙️ Hinweise
 
-- **Interne Kommunikation:** WhatsApp-Gruppe, Google Meet bei Bedarf, Vor Ort
-- **Versionsverwaltung:** GitHub (inkl. Issues, Pull Requests, Branches)
-- **Interne Treffen:** Wöchentlich montags, mehr bei Bedarf
-- **Entwicklungsstil:** Dezentral, angelehnt an Scrum
-- **Dokumentation:** 
-  - Code-Kommentare
+- **Python 3.8+** wird empfohlen.
+- Für große Datenmengen wird ausreichend RAM benötigt.
+- Die wichtigsten Einstellungen (z.B. Datenpfade) findest du in `app.py` und `prerender.py`.
+- Bei Problemen prüfe die Konsolenausgabe auf Fehlermeldungen.
 
 ---
 
-## 🗓️ Umsetzungsplan (zeitlich)
+## 🛠️ Nützliche Kommandos
 
-| Woche | Aufgaben                                                                 |
-|-------|--------------------------------------------------------------------------|
-| 1     | Layout fixieren, Daten bereinigen, GitHub-Konfiguration, Anforderungsdefinition |
-| 2     | Beginn der Programmierung, Startseite programmiert                       |
-| 3     | Weiterentwicklung, Branchenseite programmiert                            |
-| 4     | Weiterentwicklung, Unternehmensseite programmiert, Erstellung von Personas(branchenbasiert) |
-| 5     | Entwicklung & Korrekturlesung                                            |
-| 6     | Finalisierung & Bugfixing                                                |
-| 7     | Abschluss, Feinschliff, letzte Korrekturen                               |
-
----
-
-## 👥 Team und Aufgabenverteilung
-
-| Name     | Aufgaben                                              |
-|----------|--------------------------------------------------------|
-| Simon    | Personas schreiben, Branchenanalyse                    |
-| Emir     | Unternehmensanalyse, Datenbereinigung                  |
-| Nursah   | Datenbereinigung                                       |
-| Chai     | Personas schreiben, Branchenanalyse, Startseite        |
-| Tommy    | UI/UX Verantwortlicher, Unternehmen, Startseite, Projektmanagement |
+- Virtuelle Umgebung verlassen:  
+  ```bash
+  deactivate
+  ```
+- Abhängigkeiten exportieren:  
+  ```bash
+  pip freeze > requirements.txt
+  ```
 
 ---
 
-## 🧠 Brainstorming-Ideen (erste Skizzen)
+## 👥 Kontakt & Support
 
-- Durchschnittseinkommen nach Branche
-- Umsatz nach Branche (Balkendiagramm)
-- Top 10 Branchen
-- User-Cluster nach Einkommen (gering, mittel, reich)
-- Vergleich von Clustern in Bezug auf Branchen
-- Fraud-Filter in der Datenbereinigung
+Bei Fragen oder Problemen wende dich an das Projektteam oder öffne ein Issue auf GitHub.
 
 ---
 
-## 📦 BlackRock-Anforderungen (Zusammenfassung)
-
-1. **Trendanalysen**: Umsatzentwicklung je Branche über Zeit
-2. **Top-Unternehmen je Branche**: Umsatz, Wachstum, Marktanteil (zeitfilterbar)
-3. **Käuferprofil je Branche**: Einkommen, Zahlungsmittel (Debit/Credit)
-4. **Relation zu Einwohnern pro Staat**
-5. **Online vs. stationär**: Kaufverhalten vergleichen
-6. **Durchschnittlicher Einkaufswert je Branche/Firma**
-7. **Zoom-Funktion**: Von Landkarte auf Branchen-/Firmendaten
-
----
-
-## 🕒 Arbeitsweise
-
-- **Montags 09:45 – 11:15 Uhr:** Wöchentliches Code-Review & Aufgabenverteilung
-- **Montags 11:30 – 13:00 Uhr:** Präsentation in der Vorlesung
-
+Viel Erfolg mit dem Finance Dashboard!

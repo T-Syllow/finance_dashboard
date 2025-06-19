@@ -10,9 +10,9 @@ import plotly.express as px
 import re
 import plotly.graph_objects as go
 import pandas as pd
-import numpy as np
-from data_access import load_transactions
 import glob
+import re
+import duckdb
 
 
 
@@ -100,7 +100,7 @@ mcc_codes_data = pd.DataFrame(list(mcc_dict.items()), columns=['mcc_code', 'desc
 
 # Annahme: Dateien heißen transactions_YYYY_MM.parquet
 parquet_files = glob.glob(os.path.join(parquet_folder, "transactions_*.parquet"))
-import re
+
 year_months = set()
 for f in parquet_files:
     match = re.search(r'transactions_(\d{4})_(\d{2})\.parquet', f)
@@ -138,6 +138,22 @@ app.layout = dbc.Container([
                             options=[{"label": m, "value": m} for m in months],
                             value=months[0],
                             className="time-dropdown",
+                        ),
+                    ], width=5),
+                    dbc.Col([
+                        dcc.Dropdown(
+                            id='compare_period_dropdown',
+                            options=[
+                                {"label": "Letzter Monat", "value": "last_month"},
+                                {"label": "Letzte 3 Monate", "value": "last_3_months"},
+                                {"label": "Letzte 6 Monate", "value": "last_6_months"},
+                                {"label": "Letztes Jahr", "value": "last_year"},
+                                {"label": "Letzte 2 Jahre", "value": "last_2_years"},
+                                {"label": "Letzte 3 Jahre", "value": "last_3_years"},
+                            ],
+                            value="last_month",
+                            className="time-dropdown",
+                            clearable=False,
                         ),
                     ], width=5),
                 ], className="d-flex gap-2 w-100 justify-content-start"),
@@ -221,56 +237,204 @@ app.layout = dbc.Container([
     ], width=12, className="h-100 position-absolute left-0", id="popup5")
 ], fluid=True, className="body position-relative")
 
-@app.callback(
-    Output('timed_transaction_data', 'data'),
-    Input('year_dropdown', 'value'),
-    Input('month_dropdown', 'value'),
-)
-def update_timed_transaction_data(selected_year, selected_month):
-    if not selected_year or not selected_month:
-        return []
-    parquet_path = f"./parquet_data/transactions_{selected_year}_{str(selected_month).zfill(2)}.parquet"
-    if not os.path.exists(parquet_path):
-        return []
-    df = pd.read_parquet(parquet_path)
-    return df.to_dict('records')
+def load_all_period_duckdb(year, month, compare_period, parquet_folder="./parquet_data/"):
+    # Gleiches Perioden-Building wie oben
+    periods = []
+    year = int(year)
+    month = int(month)
+    if compare_period == "last_month":
+        periods = [(year, month)]
+    elif compare_period == "last_3_months":
+        for i in range(3):
+            y, m = divmod(month - i - 1, 12)
+            periods.append((year + y, (m % 12) + 1))
+    elif compare_period == "last_6_months":
+        for i in range(6):
+            y, m = divmod(month - i - 1, 12)
+            periods.append((year + y, (m % 12) + 1))
+    elif compare_period == "last_year":
+        periods = [(year - 1, m) for m in range(1, 13)]
+    elif compare_period == "last_2_years":
+        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)]
+    elif compare_period == "last_3_years":
+        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)] + [(year - 3, m) for m in range(1, 13)]
+    else:
+        periods = [(year, month)]
+
+    parquet_files = [
+        f"{parquet_folder}/transactions_{y}_{str(m).zfill(2)}.parquet"
+        for y, m in periods
+        if os.path.exists(f"{parquet_folder}/transactions_{y}_{str(m).zfill(2)}.parquet")
+    ]
+    if not parquet_files:
+        return pd.DataFrame()
+
+    con = duckdb.connect()
+    query = f"""
+        SELECT date, amount, merchant_id, mcc, client_id, merchant_city, merchant_state, card_id
+        FROM read_parquet({parquet_files})
+    """
+    df = con.execute(query).df()
+    con.close()
+    return df
+
+def load_unternehmen_period_duckdb(year, month, compare_period, entity, parquet_folder="./parquet_data/"):
+    # Erzeuge Liste aller relevanten Parquet-Dateien
+    periods = []
+    year = int(year)
+    month = int(month)
+    if compare_period == "last_month":
+        periods = [(year, month)]
+    elif compare_period == "last_3_months":
+        for i in range(3):
+            y, m = divmod(month - i - 1, 12)
+            periods.append((year + y, (m % 12) + 1))
+    elif compare_period == "last_6_months":
+        for i in range(6):
+            y, m = divmod(month - i - 1, 12)
+            periods.append((year + y, (m % 12) + 1))
+    elif compare_period == "last_year":
+        periods = [(year - 1, m) for m in range(1, 13)]
+    elif compare_period == "last_2_years":
+        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)]
+    elif compare_period == "last_3_years":
+        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)] + [(year - 3, m) for m in range(1, 13)]
+    else:
+        periods = [(year, month)]
+
+    parquet_files = [
+        f"{parquet_folder}/transactions_{y}_{str(m).zfill(2)}.parquet"
+        for y, m in periods
+        if os.path.exists(f"{parquet_folder}/transactions_{y}_{str(m).zfill(2)}.parquet")
+    ]
+    if not parquet_files:
+        return pd.DataFrame()
+
+    con = duckdb.connect()
+    query = f"""
+        SELECT date, amount, merchant_id, mcc, client_id, merchant_city, merchant_state, card_id
+        FROM read_parquet({parquet_files})
+        WHERE merchant_id = {int(entity)}
+    """
+    df = con.execute(query).df()
+    con.close()
+    return df
+
+def load_branchen_period_duckdb(year, month, compare_period, entity, parquet_folder="./parquet_data/"):
+    # Erzeuge Liste aller relevanten Parquet-Dateien
+    periods = []
+    year = int(year)
+    month = int(month)
+    if compare_period == "last_month":
+        periods = [(year, month)]
+    elif compare_period == "last_3_months":
+        for i in range(3):
+            y, m = divmod(month - i - 1, 12)
+            periods.append((year + y, (m % 12) + 1))
+    elif compare_period == "last_6_months":
+        for i in range(6):
+            y, m = divmod(month - i - 1, 12)
+            periods.append((year + y, (m % 12) + 1))
+    elif compare_period == "last_year":
+        periods = [(year - 1, m) for m in range(1, 13)]
+    elif compare_period == "last_2_years":
+        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)]
+    elif compare_period == "last_3_years":
+        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)] + [(year - 3, m) for m in range(1, 13)]
+    else:
+        periods = [(year, month)]
+
+    parquet_files = [
+        f"{parquet_folder}/transactions_{y}_{str(m).zfill(2)}.parquet"
+        for y, m in periods
+        if os.path.exists(f"{parquet_folder}/transactions_{y}_{str(m).zfill(2)}.parquet")
+    ]
+    if not parquet_files:
+        return pd.DataFrame()
+
+    con = duckdb.connect()
+    query = f"""
+        SELECT date, amount, merchant_id, mcc, client_id, merchant_city, merchant_state, card_id
+        FROM read_parquet({parquet_files})
+        WHERE mcc = {int(entity)}
+    """
+    df = con.execute(query).df()
+    con.close()
+    return df
+
+def load_period(year, month, compare_period, parquet_folder="./parquet_data/"):
+    # Erzeuge eine Liste aller (Jahr, Monat)-Kombinationen für den gewählten Zeitraum
+    periods = []
+    year = int(year)
+    month = int(month)
+    if compare_period == "last_month":
+        periods = [(year, month)]
+    elif compare_period == "last_3_months":
+        for i in range(3):
+            y, m = divmod(month - i - 1, 12)
+            periods.append((year + y, (m % 12) + 1))
+    elif compare_period == "last_6_months":
+        for i in range(6):
+            y, m = divmod(month - i - 1, 12)
+            periods.append((year + y, (m % 12) + 1))
+    elif compare_period == "last_year":
+        periods = [(year - 1, m) for m in range(1, 13)]
+    elif compare_period == "last_2_years":
+        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)]
+    elif compare_period == "last_3_years":
+        periods = [(year - 1, m) for m in range(1, 13)] + [(year - 2, m) for m in range(1, 13)] + [(year - 3, m) for m in range(1, 13)]
+    else:
+        periods = [(year, month)]
+
+    dfs = []
+    for y, m in periods:
+        parquet_path = os.path.join(parquet_folder, f"transactions_{y}_{str(m).zfill(2)}.parquet")
+        if os.path.exists(parquet_path):
+            dfs.append(pd.read_parquet(parquet_path))
+    if dfs:
+        return pd.concat(dfs, ignore_index=True)
+    else:
+        return pd.DataFrame()
 
 @app.callback(
     Output('timed_branchen_transaction_data', 'data'),
     Input('year_dropdown', 'value'),
     Input('month_dropdown', 'value'),
-    Input('category_dropdown', 'value'),  # Branche oder Unternehmen
-    Input('entity_dropdown', 'value')     # Die ausgewählte Branche (MCC)
+    Input('compare_period_dropdown', 'value'),
+    Input('category_dropdown', 'value'),
+    Input('entity_dropdown', 'value')
 )
-def update_timed_branchen_transaction_data(selected_year, selected_month, category, entity):
-    if category == 'Branchen' and entity is not None and selected_year and selected_month:
-        parquet_path = f"./parquet_data/transactions_{selected_year}_{str(selected_month).zfill(2)}.parquet"
-        if not os.path.exists(parquet_path):
-            return []
-        df = pd.read_parquet(parquet_path)
-        df = df[df['mcc'] == int(entity)]
+def update_timed_branchen_transaction_data(selected_year, selected_month, compare_period, category, entity):
+    if category == 'Branchen' and entity is not None and selected_year and selected_month and compare_period:
+        df = load_branchen_period_duckdb(selected_year, selected_month, compare_period, entity)
         return df.to_dict('records')
     return []
-    
+
 @app.callback(
     Output('timed_unternehmen_transaction_data', 'data'),
     Input('year_dropdown', 'value'),
     Input('month_dropdown', 'value'),
-    Input('category_dropdown', 'value'),  # Die ausgewählte Kategorie
-    Input('entity_dropdown', 'value')     # Die ausgewählte Unternehmen-ID
+    Input('compare_period_dropdown', 'value'),
+    Input('category_dropdown', 'value'),
+    Input('entity_dropdown', 'value')
 )
-def update_timed_unternehmen_transaction_data(selected_year, selected_month, category, entity):
-    if category == 'Unternehmen':
-        if entity is None or not selected_year or not selected_month:
-            return []  # Keine Daten, wenn kein Unternehmen oder Zeitraum ausgewählt ist
-
-        parquet_path = f"./parquet_data/transactions_{selected_year}_{str(selected_month).zfill(2)}.parquet"
-        if not os.path.exists(parquet_path):
-            return []
-        df = pd.read_parquet(parquet_path)
-        df = df[df['merchant_id'] == int(entity)]
+def update_timed_unternehmen_transaction_data(selected_year, selected_month, compare_period, category, entity):
+    if category == 'Unternehmen' and entity and selected_year and selected_month and compare_period:
+        df = load_unternehmen_period_duckdb(selected_year, selected_month, compare_period, entity)
         return df.to_dict('records')
     return []
+
+@app.callback(
+    Output('timed_transaction_data', 'data'),
+    Input('year_dropdown', 'value'),
+    Input('month_dropdown', 'value'),
+    Input('compare_period_dropdown', 'value'),
+)
+def update_timed_transaction_data(selected_year, selected_month, compare_period):
+    if not selected_year or not selected_month or not compare_period:
+        return []
+    df = load_all_period_duckdb(selected_year, selected_month, compare_period)
+    return df.to_dict('records')
 
 @callback(
     Output('map-container', 'children'),
