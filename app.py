@@ -131,7 +131,7 @@ app.layout = dbc.Container([
                             value=years[0],
                             className="time-dropdown",
                         ),
-                    ], width=5),
+                    ], width=3),
                     dbc.Col([
                         dcc.Dropdown(
                             id='month_dropdown',
@@ -139,7 +139,7 @@ app.layout = dbc.Container([
                             value=months[0],
                             className="time-dropdown",
                         ),
-                    ], width=5),
+                    ], width=3),
                     dbc.Col([
                         dcc.Dropdown(
                             id='compare_period_dropdown',
@@ -153,8 +153,8 @@ app.layout = dbc.Container([
                             className="time-dropdown",
                             clearable=False,
                         ),
-                    ], width=5),
-                ], className="d-flex gap-2 w-100 justify-content-start"),
+                    ], width=4),
+                ], className="d-flex gap-2 w-100 flex-wrap justify-content-start"),
 
             ], width=12, id='zeitraum_container'),
             dbc.Col([
@@ -566,7 +566,7 @@ def handle_unternehmen(df_merchant, entity_value):
 
     return create_merchant_card(merchant_id, total_revenue, len(df_merchant), standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart, online_umsatz_anteil_display)
 
-def handle_branchen(df_branche, entity_value):
+def handle_branchen(df_branche):
 
     if df_branche.empty:
         return dbc.Col([
@@ -625,7 +625,7 @@ def update_right_section(category, entity_value, timed_unternehmen_transaction_d
 
     if category == 'Branchen':
         df = pd.DataFrame(timed_branchen_transaction_data)
-        return handle_branchen(df, entity_value)
+        return handle_branchen(df)
 
     return None
 
@@ -836,9 +836,6 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
 
 
         # =====================================================================================
-
-        #Unique Customers
-        EinzigartigeKäufer = timed_branchen_data["client_id"].nunique()
 
         umsatzwachstum_display = "n/a"
 
@@ -1128,9 +1125,8 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
     Output("detail-view2", "children"),
     Input("category_dropdown", "value"),
     Input('timed_branchen_transaction_data', 'data'),
-    Input('timed_unternehmen_transaction_data', 'data'),
 )
-def render_detailview2(category, timed_branchen_data, timed_unternehmen_data):  # Tabelle für Branchen mit KPIs
+def render_detailview2(category, timed_branchen_data):  # Tabelle für Branchen mit KPIs
     if category == 'Unternehmen':
         return html.Div("Unternehmensdaten werden hier angezeigt.")
 
@@ -1183,10 +1179,9 @@ def render_detailview2(category, timed_branchen_data, timed_unternehmen_data):  
 @app.callback(
     Output("detail-view4", "children"),
     Input("category_dropdown", "value"),
-    Input('timed_branchen_transaction_data', 'data'),
     Input('timed_unternehmen_transaction_data', 'data'),
 )
-def render_detailview4(category, timed_branchen_data, timed_unternehmen_data): # Tabelle für Unternehmen mit KPIs
+def render_detailview4(category, timed_unternehmen_data): # Tabelle für Unternehmen mit KPIs
     if category == 'Unternehmen':
         if timed_unternehmen_data is None or len(timed_unternehmen_data) == 0:
             return html.Div("Keine Daten verfügbar.")
@@ -1278,10 +1273,10 @@ def render_detailview5(category, timed_branchen_data, entity, selected_year, sel
                     dbc.CardBody([
                         html.H6("Durchschnittliches Einkommen ($)", className="card-title"),
                         html.P(
-                            avg_income := calculate_avg_income_for_branche(entity, timed_branchen_data),
+                            avg_income := calculate_avg_income_for_branche(timed_branchen_data),
                             className="card-text fw-bold"
                         ),
-                        income_category_bar_component(avg_income, selected_year, selected_month, entity, timed_branchen_data)
+                        income_category_bar_component(avg_income, timed_branchen_data)
                     ], className="persona-card")
                 ], className="h-100")
             ], md=4, sm=12, className="mb-3"),
@@ -1290,11 +1285,11 @@ def render_detailview5(category, timed_branchen_data, entity, selected_year, sel
                     dbc.CardBody([
                         html.H6("Ø Monatsausgaben pro Kunde in dieser Branche (im ausgewählten Zeitraum)", className="card-title"),
                         html.P(
-                            calculate_mean_monthly_spending_per_customer(entity, timed_branchen_data),
+                            calculate_mean_monthly_spending_per_customer(timed_branchen_data),
                             className="card-text"
                         ),
                         dcc.Graph(
-                            figure=get_customer_spending_distribution_pie_chart(selected_year, selected_month, entity, timed_branchen_data),
+                            figure=get_customer_spending_distribution_pie_chart(entity, timed_branchen_data),
                             config={"displayModeBar": False},
                             style={"height": "200px"},
                             className="w-100"
@@ -1307,7 +1302,7 @@ def render_detailview5(category, timed_branchen_data, entity, selected_year, sel
                 dbc.Card([
                     dbc.CardBody([
                         html.H6("Kartennutzung nach Typ & Marke", className="card-title"),
-                        dcc.Graph(figure=plot_card_type_distribution_by_brand(entity, timed_branchen_data), style={"height": "200px"}, className="w-100"),
+                        dcc.Graph(figure=plot_card_type_distribution_by_brand(timed_branchen_data), style={"height": "200px"}, className="w-100"),
                     ], className="persona-card")
                 ], className="h-100")
             ], md=4, sm=12, className="mb-3"),
@@ -1315,7 +1310,7 @@ def render_detailview5(category, timed_branchen_data, entity, selected_year, sel
                 dbc.Card([
                     dbc.CardBody([
                         html.H6("Geschlechterverteilung", className="card-title"),
-                        dcc.Graph(figure=get_dominant_gender_in_branche(entity, timed_branchen_data), config={"displayModeBar": False}, style={"height": "200px"}, className="w-100"),
+                        dcc.Graph(figure=get_dominant_gender_in_branche(timed_branchen_data), config={"displayModeBar": False}, style={"height": "200px"}, className="w-100"),
                     ], className="persona-card")
                 ], className="h-100")
             ], md=4, sm=12, className="mb-3"),
@@ -1324,7 +1319,7 @@ def render_detailview5(category, timed_branchen_data, entity, selected_year, sel
                     dbc.CardBody([
                         html.H6("Durchschnittlicher Credit Score", className="card-title"),
                         dcc.Graph(
-                            figure=erstelle_kredit_score_anzeige(get_average_credit_score_in_branche(entity, timed_branchen_data)),
+                            figure=erstelle_kredit_score_anzeige(get_average_credit_score_in_branche(timed_branchen_data)),
                             config={"displayModeBar": False},
                             style={"height": "200px"},
                             className="w-100"
@@ -1364,36 +1359,30 @@ def update_detailView(category, entity):
     return "", "", "", ""
 
 
-def calculate_avg_income_for_branche(mcc_code, timed_branchen_data):
-   
+def calculate_avg_income_for_branche(timed_branchen_data):
 
     users_data['id'] = users_data['id'].astype(str)
 
-    # Kunden-IDs
     unique_clients = timed_branchen_data['client_id'].dropna().astype(str).unique()
 
     matching_users = users_data[users_data['id'].astype(str).isin(unique_clients)]
 
-    # Durchschnitt berechnen
     avg_income = matching_users['per_capita_income'].mean()
 
-    # Errorhandling
     if pd.isna(avg_income):
         return "Keine Daten"
 
-    # kürzen
     t_income = int(avg_income * 100) / 100
 
     # Ergebnis mit $ zurückgeben
     return f"{t_income:.2f} $"
     
-def income_category_bar_component(avg_income_str, start_date, end_date, mcc_code, timed_branchen_data):
+def income_category_bar_component(avg_income_str, timed_branchen_data):
     if avg_income_str == "Keine Daten":
         return html.P("Keine Daten verfügbar.")
 
     income_value = float(avg_income_str.replace(" $", "").replace(",", ""))
 
-    # hole alle Kunden in der Branche und Zeitraum
     if timed_branchen_data.empty:
         return html.P("Keine Transaktionsdaten verfügbar.")
 
@@ -1440,7 +1429,6 @@ def income_category_bar_component(avg_income_str, start_date, end_date, mcc_code
 
     # Skalenanzeige
     color_bars = []
-    hover_texts = []
     for idx, klass in enumerate(EINKOMMENSKLASSEN):
         percent = class_percents.get(idx, 0)
         count = class_counts.get(idx, 0)
@@ -1476,7 +1464,7 @@ def income_category_bar_component(avg_income_str, start_date, end_date, mcc_code
         ], style={"paddingLeft": "1rem", "marginTop": "10px"})
     ])
 
-def calculate_mean_monthly_spending_per_customer(mcc_code, timed_branchen_data):
+def calculate_mean_monthly_spending_per_customer(timed_branchen_data):
 
     if timed_branchen_data.empty:
         return "Keine Daten"
@@ -1504,7 +1492,7 @@ def calculate_mean_monthly_spending_per_customer(mcc_code, timed_branchen_data):
 
     return f"{truncated:.2f} $"
 
-def get_customer_spending_distribution_pie_chart(start_date, end_date, current_mcc_code, timed_branchen_data):
+def get_customer_spending_distribution_pie_chart(current_mcc_code, timed_branchen_data):
     if timed_branchen_data.empty:
         return go.Figure()
 
@@ -1597,7 +1585,7 @@ def get_customer_spending_distribution_pie_chart(start_date, end_date, current_m
 
 
 
-def get_dominant_gender_in_branche(mcc_code, timed_branchen_data, show_full_distribution=False):
+def get_dominant_gender_in_branche(timed_branchen_data):
    
     users_data['id'] = users_data['id'].astype(str)
 
@@ -1728,7 +1716,7 @@ def create_age_histogram(selected_year, selected_month, mcc_code, timed_branchen
 
 
 
-def get_average_credit_score_in_branche(mcc_code, timed_branchen_data):
+def get_average_credit_score_in_branche(timed_branchen_data):
 
     users_data['id'] = users_data['id'].astype(str)
 
@@ -1789,7 +1777,7 @@ def erstelle_kredit_score_anzeige(kredit_score_wert):
     return diagramm
 
 
-def plot_card_type_distribution_by_brand(mcc_code, timed_branchen_data , show_percentage=False):
+def plot_card_type_distribution_by_brand(timed_branchen_data , show_percentage=False):
 
     # Wenn keine Daten vorhanden sind, gib leere Grafik zurück
     if timed_branchen_data.empty:
