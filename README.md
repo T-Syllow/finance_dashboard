@@ -1,6 +1,7 @@
 # 📊 Finance Dashboard – Installationsanleitung
 
-Dieses Dashboard visualisiert Unternehmens- und Branchendaten für Investmententscheidungen.  
+Dieses Dashboard visualisiert Unternehmens- und Branchendaten für den Datensatz https://www.kaggle.com/datasets/computingvictor/transactions-fraud-datasets  
+Es dient als Analysetool für Märkte und Unternehmen in den USA.
 Folge dieser Anleitung, um das Projekt lokal zum Laufen zu bringen.
 
 ---
@@ -14,7 +15,9 @@ git clone <REPO-URL>
 cd finance_dashboard
 ```
 
-### 2. Python-Umgebung einrichten (empfohlen)
+### 2. Virtuelle Umgebung (venv) erstellen und starten
+
+**(empfohlen, um Abhängigkeiten sauber zu halten)**
 
 ```bash
 python3 -m venv venv
@@ -31,19 +34,29 @@ pip install -r requirements.txt
 Falls keine `requirements.txt` vorhanden ist, installiere die wichtigsten Pakete manuell:
 
 ```bash
-pip install dash dash-bootstrap-components pandas plotly duckdb
+pip install dash dash-bootstrap-components pandas plotly duckdb pyarrow fastparquet
 ```
 
 ### 4. Daten vorbereiten
+- Installiere den Datensatz unter https://www.kaggle.com/datasets/computingvictor/transactions-fraud-datasets und lege die Dateien in den Ordner finance_dashboard/newData
 
-- Lege deine Parquet-Dateien im Ordner `parquet_data/` ab.
-- Stelle sicher, dass die Dateien wie folgt benannt sind:
-  - `transactions_YYYY_MM.parquet` (z.B. `transactions_2023_01.parquet`)
-- Optional: Führe das Skript `prerender.py` aus, um die Daten vorzubereiten:
-
+- Führe die Datei cleanData.py aus: (ersetze wenn notwendig den Pfad zur transactions_data.csv)
 ```bash
-python prerender.py
+python3 cleanData.py
 ```
+!! Beachte: dies kann ein paar Minuten dauern. (Großer Datensatz!)
+
+- Führe die Datei to_parquet.py aus: (ersetze wenn notwendig den Pfad zur cleaned_transaction_data.csv)
+```bash
+python3 to_parquet.py
+```
+Erwartetes Verhalten: im Ordner parquet_data entsteht eine "cleaned_transactions_data.parquet" und eine "gesamt_ausgaben_pro_client.parquet" Datei.
+
+- Führe die Datei prerender.py aus: (ersetze wenn notwendig den Pfad zur cleand_transaction_data.parquet)
+```bash
+python3 to_parquet.py
+```
+Erwartetes Verhalten: im Ordner parquet_data entstehen transactions_YYYY_MM.parquet Dateien für jeden Monat und Jahr des Datensatzes.
 
 ### 5. Dashboard starten
 
@@ -61,7 +74,6 @@ Das Dashboard ist dann erreichbar unter:
 - **Python 3.8+** wird empfohlen.
 - Für große Datenmengen wird ausreichend RAM benötigt.
 - Die wichtigsten Einstellungen (z.B. Datenpfade) findest du in `app.py` und `prerender.py`.
-- Bei Problemen prüfe die Konsolenausgabe auf Fehlermeldungen.
 
 ---
 
@@ -75,13 +87,3 @@ Das Dashboard ist dann erreichbar unter:
   ```bash
   pip freeze > requirements.txt
   ```
-
----
-
-## 👥 Kontakt & Support
-
-Bei Fragen oder Problemen wende dich an das Projektteam oder öffne ein Issue auf GitHub.
-
----
-
-Viel Erfolg mit dem Finance Dashboard!
