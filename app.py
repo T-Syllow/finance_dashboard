@@ -1111,19 +1111,28 @@ def render_detailview4(category, timed_unternehmen_data): # Tabelle für Unterne
     Output("detail-view5", "children"),
     Input("category_dropdown", "value"),
     Input('timed_branchen_transaction_data', 'data'),
+    Input('timed_transaction_data', 'data'),
     Input("entity_dropdown", "value"),
     Input("year_dropdown", "value"),
     Input("month_dropdown", "value"),
 )
-def render_detailview5(category, timed_branchen_data, entity, selected_year, selected_month):
+def render_detailview5(category, timed_branchen_data, timed_transaction_data, entity, selected_year, selected_month):
     if timed_branchen_data is None:
         return dbc.Alert("Keine Transaktionsdaten verfügbar.", color="warning")
 
     timed_branchen_data = pd.DataFrame(timed_branchen_data)
+    timed_transaction_data = pd.DataFrame(timed_transaction_data)
+
     if 'date' in timed_branchen_data.columns:
         timed_branchen_data['date'] = pd.to_datetime(timed_branchen_data['date'])
     else:
         return dbc.Alert("Keine Datumsinformationen verfügbar.", color="warning")
+    
+    if 'date' in timed_transaction_data.columns:
+        timed_transaction_data['date'] = pd.to_datetime(timed_transaction_data['date'])
+    else:
+        return dbc.Alert("Keine Datumsinformationen verfügbar.", color="warning")
+
 
     if category == 'Branchen' and timed_branchen_data is not None:
         persona_cards = dbc.Row([
@@ -1167,7 +1176,7 @@ def render_detailview5(category, timed_branchen_data, entity, selected_year, sel
                             className="card-text"
                         ),
                         dcc.Graph(
-                            figure=get_customer_spending_distribution_pie_chart(entity, timed_branchen_data),
+                            figure=get_customer_spending_distribution_pie_chart(entity, timed_branchen_data, timed_transaction_data),
                             config={"displayModeBar": False},
                             style={"height": "200px"},
                             className="w-100"
@@ -1370,19 +1379,20 @@ def calculate_mean_monthly_spending_per_customer(timed_branchen_data):
 
     return f"{truncated:.2f} $"
 
-def get_customer_spending_distribution_pie_chart(current_mcc_code, timed_branchen_data):
-    if timed_branchen_data.empty:
+def get_customer_spending_distribution_pie_chart(current_mcc_code, timed_branchen_data, timed_transaction_data):
+    if timed_transaction_data.empty:
         return go.Figure()
+    
 
     #  Kunden filtern → nur Kunden aktiv in aktueller Branche
-    df_branche = timed_branchen_data[timed_branchen_data['mcc'] == int(current_mcc_code)]
+    df_branche = timed_transaction_data[timed_transaction_data['mcc'] == int(current_mcc_code)]
     kunden_in_branche = df_branche['client_id'].unique()
 
     if len(kunden_in_branche) == 0:
         return go.Figure()
 
     # Transaktionen aller MCCs dieser Kunden
-    df_clients = timed_branchen_data[timed_branchen_data['client_id'].isin(kunden_in_branche)]
+    df_clients = timed_transaction_data[timed_transaction_data['client_id'].isin(kunden_in_branche)]
     df_clients['year_month'] = df_clients['date'].dt.to_period('M')
 
     # Anzahl Monate pro Kunde (egal wo aktiv)
