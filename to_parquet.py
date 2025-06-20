@@ -3,12 +3,12 @@ import os
 
 # Liste deiner CSV-Dateien
 csv_files = [
-    'cleaned_transactions_data.csv',
+    'cleaned_transaction_data.csv',
 ]
 
 # Quell- und Zielverzeichnis
-data_folder = './newData'
-output_dir = './parquet_data'
+data_folder = './newData/'
+output_dir = './parquet_data/'
 os.makedirs(output_dir, exist_ok=True)
 
 # CSV → Parquet konvertieren

@@ -89,7 +89,7 @@ def get_income_category_colors_and_labels(einkommensklassen):
 # --- Read in data ---
 data_folder = "./newData/"
 parquet_folder = "./parquet_data/"
-transaction_file = parquet_folder + "cleaned_transaction_data_500k.parquet"
+transaction_file = parquet_folder + "cleaned_transaction_data.parquet"
 #transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_50k.csv", sep=',', encoding='utf-8')
 # transaction_data = pd.read_parquet(parquet_folder + "cleaned_transaction_data_50k.parquet", columns=["id","date","client_id","card_id","amount","merchant_id","merchant_city","merchant_state","mcc"])
 cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv")
@@ -109,9 +109,6 @@ for f in parquet_files:
 years = sorted({y for y, m in year_months})
 months = sorted({m for y, m in year_months})
 
-date_col = pd.read_parquet(transaction_file, columns=['date'])
-min_date = pd.to_datetime(date_col['date']).min().strftime("%Y-%m-%d")
-max_date = pd.to_datetime(date_col['date']).max().strftime("%Y-%m-%d")
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 

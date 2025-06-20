@@ -3,7 +3,7 @@ import os
 
 # Verzeichnisse und Dateinamen
 parquet_folder = "./parquet_data/"
-transaction_file = os.path.join(parquet_folder, "cleaned_transactions_data.parquet")
+transaction_file = os.path.join(parquet_folder, "cleaned_transaction_data.parquet")
 output_file = os.path.join(parquet_folder, "gesamt_ausgaben_pro_client.parquet")
 
 # lade alle Spalten aus transactions main datei
