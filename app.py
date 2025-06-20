@@ -360,6 +360,15 @@ def update_timed_branchen_transaction_data(selected_year, selected_month, compar
     if category == 'Branchen' and entity is not None and selected_year and selected_month and compare_period:
         df = load_branchen_period_duckdb(selected_year, selected_month, compare_period, entity)
         return df.to_dict('records')
+    elif category == 'Unternehmen' and entity is not None and selected_year and selected_month and compare_period:
+        # Lade die Transaktionen des Unternehmens
+        df_unternehmen = load_unternehmen_period_duckdb(selected_year, selected_month, compare_period, entity)
+        # Ermittle die Branche (mcc) des Händlers
+        if not df_unternehmen.empty and 'mcc' in df_unternehmen.columns:
+            mcc = int(df_unternehmen['mcc'].iloc[0])
+            # Lade alle Transaktionen dieser Branche im Zeitraum
+            df_branche = load_branchen_period_duckdb(selected_year, selected_month, compare_period, mcc)
+            return df_branche.to_dict('records')
     return []
 
 @app.callback(
@@ -488,7 +497,7 @@ def create_ranklist(title, content, list_id):
             ], width=12, className="ranklist_wrapper d-flex")
         ])
    
-def handle_unternehmen(df_merchant, entity_value):
+def handle_unternehmen(df_merchant, df_branche_of_merchant, entity_value):
 
     merchant_id = int(entity_value)
 
@@ -516,7 +525,7 @@ def handle_unternehmen(df_merchant, entity_value):
     marktanteil_display = "n/a"
 
     # Marktanteil berechnen
-    branche_umsatz = df_merchant['amount'].sum() if 'mcc' in df_merchant.columns else 0
+    branche_umsatz = df_branche_of_merchant['amount'].sum() if 'mcc' in df_merchant.columns else 0
     if branche_umsatz > 0:
         marktanteil = total_revenue / branche_umsatz * 100
         marktanteil_display = f"{marktanteil:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -620,8 +629,9 @@ def update_right_section(category, entity_value, timed_unternehmen_transaction_d
 
 
     if category == 'Unternehmen':
-        df = pd.DataFrame(timed_unternehmen_transaction_data)
-        return handle_unternehmen(df, entity_value)
+        df_merchant = pd.DataFrame(timed_unternehmen_transaction_data)
+        df_branche = pd.DataFrame(timed_branchen_transaction_data)
+        return handle_unternehmen(df_merchant, df_branche, entity_value)
 
     if category == 'Branchen':
         df = pd.DataFrame(timed_branchen_transaction_data)
@@ -742,45 +752,13 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
 
     if category == 'Branchen' and entity is not None:
         
-        gesamt_ausgaben_pro_client = pd.read_parquet("./parquet_data/gesamt_ausgaben_pro_client.parquet")
+        
         # =======================
 
         umsatz_Jahr_Merchant, umsatz_pro_merchant = process_branchen_data(timed_branchen_data)
         top_5 = umsatz_pro_merchant.nlargest(5, 'gesamtumsatz')
         flop_5 = umsatz_pro_merchant.nsmallest(5, 'gesamtumsatz')
         fig1, fig2 = create_branchen_charts(umsatz_Jahr_Merchant, top_5, flop_5)
-
-        # ============================= Code Start ============================================
-
-         #Marktkapitalisierung berechnet
-
-        Marktkapitalisierung = umsatz_pro_merchant["gesamtumsatz"].sum()  
-        Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
-
-        GesamtTransaktionen = timed_branchen_data["merchant_id"].count()
-        EinzigartigeKäufer = timed_branchen_data["client_id"].nunique()
-        DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
-
-        DurchschnittTransaktionenProKäufer = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
-
-        #Durchschnittliche Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum
-
-        DurchschnittTransaktionshöhe = timed_branchen_data['amount'].mean()
-        DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} $ ".replace(",", "X").replace(".", ",").replace("X", ".")
-        
-       
-        # Ein einzelner Wert, der den durchschnittlichen Betrag angibt, den ein Kunde insgesamt ausgegeben hat.
-        Durchschnitt_gesamt = gesamt_ausgaben_pro_client['gesamt_ausgaben'].mean()
-        
-        
-        BranchenAusgabenProClient = timed_branchen_data.groupby("client_id")["amount"].sum()
-
-        # Ein einzelner Wert, der den durchschnittlichen Betrag angibt, den ein Kunde in der Branche ausgegeben hat.
-        DurchschnittBranche = BranchenAusgabenProClient.mean()
-
-        # "ConsumerMoneySpent" = Ein Wert, der angibt, wie viel Prozent der Gesamtausgaben eines durchschnittlichen Kunden in der betrachteten Branche ausgegeben werden.
-        ConsumerMoneySpent= (DurchschnittBranche / Durchschnitt_gesamt) * 100
-        ConsumerMoneySpent = f"{ConsumerMoneySpent:,.2f} % ".replace(",", "X").replace(".", ",").replace("X", ".")
 
         # =================== Online Umsatzanteil =====================
 
@@ -828,6 +806,9 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
         
         #Consumer Money Spent (%)
 
+        gesamt_ausgaben_pro_client = pd.read_parquet("./parquet_data/gesamt_ausgaben_pro_client.parquet")
+        # Ein einzelner Wert, der den durchschnittlichen Betrag angibt, den ein Kunde insgesamt ausgegeben hat.
+        Durchschnitt_gesamt = gesamt_ausgaben_pro_client['gesamt_ausgaben'].mean()
         BranchenAusgabenProClient = timed_branchen_data.groupby("client_id")["amount"].sum()
         DurchschnittBranche = BranchenAusgabenProClient.mean()
 
@@ -837,93 +818,25 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
 
         # =====================================================================================
 
+        # Umsatzwachstum: Nur Startmonat vs. Endmonat vergleichen
         umsatzwachstum_display = "n/a"
-
-        umsatz_pro_jahr = ""
-
-        if not timed_branchen_data.empty:
+        if not timed_branchen_data.empty and 'date' in timed_branchen_data.columns:
             timed_branchen_data['date'] = pd.to_datetime(timed_branchen_data['date'])
-            timed_branchen_data['month'] = timed_branchen_data['date'].dt.month
+            timed_branchen_data['year_month'] = timed_branchen_data['date'].dt.to_period('M')
 
-            # Umsatz pro Monat im ausgewählten Jahr
-            umsatz_pro_monat = timed_branchen_data.groupby('month')['amount'].sum().sort_index()
+            # Finde Start- und Endmonat im aktuellen Zeitraum
+            min_month = timed_branchen_data['year_month'].min()
+            max_month = timed_branchen_data['year_month'].max()
 
-            # Monatliches Wachstum berechnen (optional)
-            umsatzwachstum_display = "n/a"
+            # Umsatz im Start- und Endmonat berechnen
+            umsatz_start = timed_branchen_data[timed_branchen_data['year_month'] == min_month]['amount'].sum()
+            umsatz_end = timed_branchen_data[timed_branchen_data['year_month'] == max_month]['amount'].sum()
 
-            # Jahr und Monat als int
-            selected_year_int = int(selected_year)
-            selected_month_int = int(selected_month)
-
-            # Umsatz im aktuellen Zeitraum
-            gesamt_umsatz = timed_branchen_data['amount'].sum()
-
-            # Prüfe, ob ein Monat ausgewählt ist (Monatsvergleich) oder nur das Jahr (Jahresvergleich)
-            if selected_year and selected_month:
-                # Vergleich mit gleichem Monat im Vorjahr
-                parquet_path_prev = f"./parquet_data/transactions_{selected_year_int - 1}_{str(selected_month_int).zfill(2)}.parquet"
-                if os.path.exists(parquet_path_prev):
-                    df_prev = pd.read_parquet(parquet_path_prev)
-                    # Filtere auf gleiche Branche
-                    df_prev = df_prev[df_prev['mcc'] == int(entity)]
-                    umsatz_vorjahr = df_prev['amount'].sum()
-                    if umsatz_vorjahr != 0:
-                        umsatzwachstum = ((gesamt_umsatz - umsatz_vorjahr) / umsatz_vorjahr) * 100
-                        umsatzwachstum_display = f"{umsatzwachstum:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
-                    else:
-                        umsatzwachstum_display = "n/a"
-                else:
-                    umsatzwachstum_display = "n/a"
-            elif selected_year:
-                # Vergleich mit Vorjahr (Jahresvergleich)
-                parquet_path_prev = f"./parquet_data/transactions_{selected_year_int - 1}_{str(selected_month_int).zfill(2)}.parquet"
-                parquet_files_prev_year = [f for f in os.listdir("./parquet_data/") if f.startswith(f"transactions_{selected_year_int - 1}_")]
-                if parquet_files_prev_year:
-                    # Alle Monatsdateien des Vorjahres laden und summieren
-                    umsatz_vorjahr = 0
-                    for file in parquet_files_prev_year:
-                        df_prev = pd.read_parquet(os.path.join("./parquet_data/", file))
-                        df_prev = df_prev[df_prev['mcc'] == int(entity)]
-                        umsatz_vorjahr += df_prev['amount'].sum()
-                    if umsatz_vorjahr != 0:
-                        umsatzwachstum = ((gesamt_umsatz - umsatz_vorjahr) / umsatz_vorjahr) * 100
-                        umsatzwachstum_display = f"{umsatzwachstum:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
-                    else:
-                        umsatzwachstum_display = "n/a"
-                else:
-                    umsatzwachstum_display = "n/a"
+            if umsatz_start > 0:
+                umsatzwachstum = ((umsatz_end - umsatz_start) / umsatz_start) * 100
+                umsatzwachstum_display = f"{umsatzwachstum:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
             else:
                 umsatzwachstum_display = "n/a"
-        else:
-            umsatzwachstum_display = "n/a"
-
-        
-
-        umsatz_pro_jahr_chart = None
-        if isinstance(umsatz_pro_jahr, pd.Series) and not umsatz_pro_jahr.empty:
-            umsatz_pro_jahr_df = umsatz_pro_jahr.reset_index()
-            umsatz_pro_jahr_df.columns = ['Jahr', 'Umsatz']
-            # Anzahl der Jahre bestimmen
-            umsatz_pro_jahr_df['Jahr'] = umsatz_pro_jahr_df['Jahr'].astype(str)
-            n_years = umsatz_pro_jahr_df['Jahr'].nunique()
-            # Passende Anzahl Blautöne aus der Skala ziehen
-            blues = px.colors.sample_colorscale("Blues", [i/(n_years-1) if n_years > 1 else 0.5 for i in range(n_years)])
-            umsatz_pro_jahr_chart = px.bar(
-                umsatz_pro_jahr_df,
-                x='Jahr',
-                y='Umsatz',
-                title='Umsatz pro Jahr',
-                labels={'Jahr': 'Jahr', 'Umsatz': 'Umsatz ($)'},
-                text_auto=True,
-                color='Jahr',
-                color_discrete_sequence=blues_dark_to_light_12
-            )
-            umsatz_pro_jahr_chart.update_layout(
-                xaxis_title="Jahr",
-                yaxis_title="Umsatz ($)",
-                template="plotly_white",
-                showlegend=False
-            )
 
         kpis = [
                 {'Marktkapitalisierung': Marktkapitalisierung},   # Berechnet die Marktkapitalisierung 
@@ -948,9 +861,6 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
                             ),
                         ], style={"background-color": "#FFFFFF"}),
                     ], width=12, className="detail-view-right-section-1"),
-                    dbc.Col([
-                        dcc.Graph(figure=umsatz_pro_jahr_chart, className="w-100", style={"height": "300px"}) if umsatz_pro_jahr_chart else None,
-                    ], width=12, className="detail-view-right-section-2"),
                 ], md=9, sm=12, className="detail-view-right-section"),
         ]
 
@@ -1007,33 +917,7 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
         bundesstaat_transaktionen = timed_unternehmen_data.groupby('merchant_state')['merchant_id'].count().reset_index(name='transaction_count')
 
 
-        # Sortiere die Bundesstaaten nach der Anzahl der Transaktionen und wähle die Top 3 aus
-        top_3_bundesstaaten = bundesstaat_transaktionen.nlargest(3, 'transaction_count')
-
-        top_3_bundesstaaten = top_3_bundesstaaten.sort_values(by='transaction_count', ascending=True)
-
-        # Bar-Chart erstellen
-        fig_bar_chart = px.bar(
-            top_3_bundesstaaten,
-            x='transaction_count',
-            y='merchant_state',
-            orientation='h',  # Horizontaler Bar-Chart
-            title='Top 3 Bundesstaaten nach Anzahl der Transaktionen',
-            labels={'transaction_count': 'Anzahl der Transaktionen', 'merchant_state': 'Bundesstaat'},
-            text_auto=True,
-            color='merchant_state',  # Damit jede Zeile eine andere Farbe bekommt
-            color_discrete_sequence=blues_dark_to_light,
-            category_orders={
-                "merchant_state": list(top_3_bundesstaaten.sort_values("transaction_count", ascending=False)["merchant_state"])
-            }
-        )
-
-        # Layout des Bar-Charts anpassen
-        fig_bar_chart.update_layout(
-            xaxis_title="Anzahl der Transaktionen",
-            yaxis_title="Bundesstaat",
-            template="plotly_white"
-        )
+        
 
         # =====================
 
@@ -1104,9 +988,6 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
                     dcc.Graph(figure=bar_umsatz_pro_monat, className="w-100", style={"height": "400px"}),
                 ], width=12, className="detail-view-right-section-3"),
                 dbc.Col([
-                    dbc.Col([    
-                        dcc.Graph(figure=fig_bar_chart, className="w-100", style={"height": "300px"}),
-                    ], width=6),
                     dbc.Col([
                        dbc.Col([
                             dbc.Col([
@@ -1116,7 +997,7 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
                                 dcc.Graph(figure=fig_pie_2, className="w-100"),
                             ], width=6),
                         ], width=12, id="gesamtkapitalisierung_container", className="d-flex justify-content-between align-content-start p-3 overflow-y-scroll"),
-                    ], width=6),
+                    ], width=12),
                 ], width=12, className="detail-view-right-section-4 d-flex"),
             ], md=9, sm=12, className="detail-view-right-section")
         ]

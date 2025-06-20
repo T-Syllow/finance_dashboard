@@ -214,11 +214,7 @@
 } 
 
 .detail-view-right-section-1 {
-    height: 40%;
-}
-
-.detail-view-right-section-2 {
-    height: 40%;
+    height: 80%;
 }
 
 .detail-view-right-section-3 {
@@ -226,20 +222,15 @@
 }
 
 .detail-view-right-section-4 {
-   
+
 }
 
 .detail-view-right-section {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: 50px;
+    justify-content: start;
+    gap: 10px;
 }
-
-/* .kpi-card {
-    width: 40%;
-    
-} */
 
 .kpi-card-body:hover {
     transition: 225ms ease-in-out;
