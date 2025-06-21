@@ -318,6 +318,8 @@ table.table thead th {
     background: #08519c;
     color: #fff;
     font-weight: bold;
+    position: sticky;
+    top: 0;
 }
 
 /* Gerade Zeilen */

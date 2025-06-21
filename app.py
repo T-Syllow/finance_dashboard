@@ -89,7 +89,7 @@ def get_income_category_colors_and_labels(einkommensklassen):
 # --- Read in data ---
 data_folder = "./newData/"
 parquet_folder = "./parquet_data/"
-transaction_file = parquet_folder + "cleaned_transaction_data.parquet"
+transaction_file = parquet_folder + "cleaned_transactions_data.parquet"
 #transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_50k.csv", sep=',', encoding='utf-8')
 # transaction_data = pd.read_parquet(parquet_folder + "cleaned_transaction_data_50k.parquet", columns=["id","date","client_id","card_id","amount","merchant_id","merchant_city","merchant_state","mcc"])
 cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv")
@@ -202,7 +202,7 @@ app.layout = dbc.Container([
             dbc.Col([
                 dash_table.DataTable(data=[], page_size=10, style_table={'overflowX': 'auto'}, id='tbl_detailansicht'),
             ], width=12, className="d-flex p-3", id="detail-view2")
-        ], className="h-100 overflow-scroll")
+        ], className="h-100 overflow-auto")
     ], width=12, className="h-100 position-absolute left-0", id="popup2"),
     dbc.Col([
         dbc.Row([
@@ -215,7 +215,7 @@ app.layout = dbc.Container([
             dbc.Col([
                 dash_table.DataTable(data=[], page_size=10, style_table={'overflowX': 'auto'}, id='tbl_detailansicht_Unternehmen'),
             ], width=12, className="d-flex p-3", id="detail-view4")
-        ], className="h-100 overflow-scroll")
+        ], className="h-100 overflow-auto")
     ], width=12, className="h-100 position-absolute left-0", id="popup4"),
     dbc.Col([
         dbc.Row([
@@ -748,9 +748,6 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
     df['date'] = pd.to_datetime(df['date'])
 
     if category == 'Branchen' and entity is not None:
-        
-        
-        # =======================
 
         umsatz_Jahr_Merchant, umsatz_pro_merchant = process_branchen_data(timed_branchen_data)
         top_5 = umsatz_pro_merchant.nlargest(5, 'gesamtumsatz')
@@ -803,7 +800,7 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
         
         #Consumer Money Spent (%)
 
-        gesamt_ausgaben_pro_client = pd.read_parquet("./parquet_data/gesamt_ausgaben_pro_client.parquet")
+        gesamt_ausgaben_pro_client = df.groupby("client_id")["amount"].sum().reset_index(name="gesamt_ausgaben")
         # Ein einzelner Wert, der den durchschnittlichen Betrag angibt, den ein Kunde insgesamt ausgegeben hat.
         Durchschnitt_gesamt = gesamt_ausgaben_pro_client['gesamt_ausgaben'].mean()
         BranchenAusgabenProClient = timed_branchen_data.groupby("client_id")["amount"].sum()
@@ -839,7 +836,7 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
                 {'Marktkapitalisierung': Marktkapitalisierung},   # Berechnet die Marktkapitalisierung 
                 {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöhe},    # Berechnet die durchschn. Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum in Euro 
                 {'durchschn. Transaktionen pro Käufer': DurchschnittTransaktionenProKäufer}, # Berechnet die Menge an Transaktionen, die ein Käufer im Durchschnitt im ausgewählten Zeitraum tätigt.
-                {'Umsatzwachstum (Jahresvergleich)': umsatzwachstum_display},  # Umsatzwachstum dynamisch berechnet
+                {'Umsatzwachstum': umsatzwachstum_display},  # Umsatzwachstum dynamisch berechnet
                 {'Consumer Money Spent (%)': ConsumerMoneySpent},  # Berechnet zunächst die durchschn. Menge an Geld, die ein User im Schnitt im ausgewählten Zeitraum ausgibt. Dann berechnet wie viel er für die Branche im durchschnitt ausgibt. und setzt es anschließend ins Verhältnis! ==> %
                 {'Käufer':  EinzigartigeKäufer}, # Wie viele einzigartige User haben im ausgewählten Zeitrsaum bei der Branche eingekauft?
                 {'Online Umsatzanteil (%)': online_umsatz_anteil_display}, #Anteil aller online Transaktionen am Gesamtumsatz der Branche
@@ -965,7 +962,7 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
             {'Marktkapitalisierung': MarktkapitalisierungDisplay},
             {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöheDisplay},
             {'durchschn. Transaktionen pro Käufer': DurchschnittTransaktionenProKäuferDisplay},
-            {'Umsatzwachstum (Jahresvergleich)': 87.42},
+            {'Umsatzwachstum': 87.42},
             {'Consumer Money Spent (%)': ConsumerMoneySpentDisplay},
             {'Käufer': EinzigartigeKäufer},
             {'Customer Lifetime Value': CustomerLifetimeValueDisplay},
@@ -1052,7 +1049,7 @@ def render_detailview2(category, timed_branchen_data):  # Tabelle für Branchen 
     return html.Div([
         html.Div("Unternehmens-KPIs je Händler", className="fw-bold mb-2"),
         table
-    ], className="w-100 overflow-scroll")
+    ], className="w-100")
 
 @app.callback(
     Output("detail-view4", "children"),
@@ -1103,7 +1100,7 @@ def render_detailview4(category, timed_unternehmen_data): # Tabelle für Unterne
         return html.Div([
             html.Div("KPIs je Bundesstaat für das Unternehmen", className="fw-bold mb-2"),
             table
-        ], className="w-100 overflow-scroll")
+        ], className="w-100")
 
 
 # Personas für Branchen 
