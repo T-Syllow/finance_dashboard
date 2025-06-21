@@ -1,11 +1,13 @@
 import pandas as pd
 import re
+import os
 
-# --- Read in Data --- Hier nur CSV Datei ändern
-input_path = "./newData/transactions_data.csv"
-output_path = "./newData/cleaned_transactions_data.csv"
-
-transaction_data = pd.read_csv(input_path, sep=",", encoding="utf8")
+# --- Zu reinigende Dateien ---
+files = [
+    ("./newData/cards_data.csv", "./newData/cleaned_cards_data.csv"),
+    ("./newData/users_data.csv", "./newData/cleaned_users_data.csv"),
+    ("./newData/transactions_data.csv", "./newData/cleaned_transactions_data.csv"),
+]
 
 # --- Datums und Uhrzeit Check ---
 def is_date_or_time(value):
@@ -50,30 +52,34 @@ def remove_unit_and_sign(value):
     except ValueError:
         return value  # Falls Umwandlung fehlschlägt
 
-# --- Spaltenloop ---
-found_units = {}
+# --- Hauptschleife für alle Dateien ---
+for input_path, output_path in files:
+    if not os.path.exists(input_path):
+        print(f"Datei nicht gefunden: {input_path}")
+        continue
 
-for column in transaction_data.columns:
-    units = set()
-    for value in transaction_data[column][1:]:  # erste Zeile überspringen
-        unit = get_unit(value)
-        if unit:
-            units.add(unit)
+    print(f"\nBearbeite Datei: {input_path}")
+    data = pd.read_csv(input_path, sep=",", encoding="utf8")
+    found_units = {}
 
-    if len(units) == 1:
-        found_unit = units.pop()
-        found_units[column] = found_unit
-        print(f"Einheit in Spalte '{column}': '{found_unit}'")
-        transaction_data[column] = transaction_data[column].apply(remove_unit_and_sign)
-    elif len(units) > 1:
-        print("Mehr als eine Einheit in Spalte " + column + ":")
-        print(units)
-    else:
-        print("Keine Einheit gefunden in Spalte " + column + ".")
+    for column in data.columns:
+        units = set()
+        for value in data[column][1:]:  # erste Zeile überspringen
+            unit = get_unit(value)
+            if unit:
+                units.add(unit)
 
-# --- Dropdown-Spalten ---
-column_titles_with_num = list(found_units.keys())
+        if len(units) == 1:
+            found_unit = units.pop()
+            found_units[column] = found_unit
+            print(f"Einheit in Spalte '{column}': '{found_unit}'")
+            data[column] = data[column].apply(remove_unit_and_sign)
+        elif len(units) > 1:
+            print("Mehr als eine Einheit in Spalte " + column + ":")
+            print(units)
+        else:
+            print("Keine Einheit gefunden in Spalte " + column + ".")
 
-# --- Speichere bereinigte CSV ---
-transaction_data.to_csv(output_path, index=False, encoding="utf8")
-print(f"Bereinigte CSV gespeichert unter: {output_path}")
+    # --- Speichere bereinigte CSV ---
+    data.to_csv(output_path, index=False, encoding="utf8")
+    print(f"Bereinigte CSV gespeichert unter: {output_path}")

@@ -1,9 +1,11 @@
 import pandas as pd
 import os
 
-# Liste deiner CSV-Dateien
+# Liste deiner zu konvertierenden CSV-Dateien
 csv_files = [
-    'cleaned_transaction_data.csv',
+    'cleaned_cards_data.csv',
+    'cleaned_users_data.csv',
+    'cleaned_transactions_data.csv',
 ]
 
 # Quell- und Zielverzeichnis

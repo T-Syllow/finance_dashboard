@@ -132,7 +132,7 @@ app.layout = dbc.Container([
                         dcc.Dropdown(
                             id='year_dropdown',
                             options=[{"label": y, "value": y} for y in years],
-                            value=years[0],
+                            value=years[8],
                             className="time-dropdown",
                         ),
                     ], width=2),
@@ -140,7 +140,7 @@ app.layout = dbc.Container([
                         dcc.Dropdown(
                             id='month_dropdown',
                             options=[{"label": m, "value": m} for m in months],
-                            value=months[0],
+                            value=months[10],
                             className="time-dropdown",
                         ),
                     ], width=2),
@@ -148,7 +148,7 @@ app.layout = dbc.Container([
                         dcc.Dropdown(
                             id='compare_period_dropdown',
                             options=COMPARE_PERIOD_OPTIONS,
-                            value="last_month",
+                            value="last_3_months",
                             className="time-dropdown",
                             clearable=False,
                         ),
@@ -706,10 +706,11 @@ def toggle_class4(n1, n2, current_class):
         return "h-100 position-absolute left-0 col-12 top-100-percent"
 
 def process_branchen_data(timed_branchen_data):
-    timed_branchen_data["year"] = pd.to_datetime(timed_branchen_data["date"]).dt.year
-    umsatz_Jahr_Merchant = timed_branchen_data.groupby(["year", "merchant_id"])["amount"].sum().reset_index(name="Umsatz_im_Jahr")
-    umsatz_pro_merchant = umsatz_Jahr_Merchant.groupby("merchant_id")["Umsatz_im_Jahr"].sum().reset_index(name="gesamtumsatz")
-    return umsatz_Jahr_Merchant, umsatz_pro_merchant
+    timed_branchen_data["month"] = pd.to_datetime(timed_branchen_data["date"]).dt.to_period('M')
+    umsatz_monat_merchant = timed_branchen_data.groupby(["month", "merchant_id"])["amount"].sum().reset_index(name="Umsatz_im_Monat")
+    umsatz_monat_merchant['month'] = umsatz_monat_merchant['month'].astype(str)  # <-- Fix!
+    umsatz_pro_merchant = umsatz_monat_merchant.groupby("merchant_id")["Umsatz_im_Monat"].sum().reset_index(name="gesamtumsatz")
+    return umsatz_monat_merchant, umsatz_pro_merchant
 
 def create_kpi_cards(kpis):
     blues_colors = [
@@ -728,25 +729,27 @@ def create_kpi_cards(kpis):
         for key, value in kpi.items()
     ]
 
-def create_branchen_charts(umsatz_Jahr_Merchant, top_5, flop_5):
-    umsatz_Jahr_Merchant_top = umsatz_Jahr_Merchant[umsatz_Jahr_Merchant['merchant_id'].isin(top_5['merchant_id'])]
-    umsatz_Jahr_Merchant_flop = umsatz_Jahr_Merchant[umsatz_Jahr_Merchant['merchant_id'].isin(flop_5['merchant_id'])]
-    fig1 = px.line(umsatz_Jahr_Merchant_top, x='year', y='Umsatz_im_Jahr', color='merchant_id', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
-    fig2 = px.line(umsatz_Jahr_Merchant_flop, x='year', y='Umsatz_im_Jahr', color='merchant_id', markers=True, title="Jährlicher Gesamtumsatz aller Händler in der Branche")
+def create_branchen_charts(umsatz_monat_merchant, top_5, flop_5):
+    umsatz_monat_merchant_top = umsatz_monat_merchant[umsatz_monat_merchant['merchant_id'].isin(top_5['merchant_id'])]
+    umsatz_monat_merchant_flop = umsatz_monat_merchant[umsatz_monat_merchant['merchant_id'].isin(flop_5['merchant_id'])]
+    # Falls wir die Monatsnummern auf der X-Achse einfügen wollen, können wir das hier tun:
+
+    # umsatz_monat_merchant_top['monat_num'] = pd.to_datetime(umsatz_monat_merchant_top['month']).dt.month.astype(str).str.zfill(2)
+    # umsatz_monat_merchant_flop['monat_num'] = pd.to_datetime(umsatz_monat_merchant_flop['month']).dt.month.astype(str).str.zfill(2)
+    fig1 = px.line( umsatz_monat_merchant_top, x='month', y='Umsatz_im_Monat', color='merchant_id', markers=True, title="Monatlicher Umsatz Top 5 Händler")
+    fig2 = px.line( umsatz_monat_merchant_flop, x='month', y='Umsatz_im_Monat', color='merchant_id', markers=True, title="Monatlicher Umsatz Flop 5 Händler")
     return fig1, fig2
 
 @app.callback(
     Output("detail-view", "children"),
     Input("category_dropdown", "value"),
     Input("entity_dropdown", "value"),
-    Input('year_dropdown', 'value'),
-    Input('month_dropdown', 'value'),
     Input('timed_transaction_data', 'data'),
     Input('timed_unternehmen_transaction_data', 'data'),
     Input('timed_branchen_transaction_data', 'data'),
 
 )
-def render_detailview(category, entity, selected_year, selected_month, timed_transaction_data, timed_unternehmen_data, timed_branchen_data):
+def render_detailview(category, entity, timed_transaction_data, timed_unternehmen_data, timed_branchen_data):
     if timed_transaction_data is None:
         return dbc.Alert("Keine Transaktionsdaten verfügbar.", color="warning")
 
@@ -757,10 +760,10 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
 
     if category == 'Branchen' and entity is not None:
 
-        umsatz_Jahr_Merchant, umsatz_pro_merchant = process_branchen_data(timed_branchen_data)
+        umsatz_monat_merchant, umsatz_pro_merchant = process_branchen_data(timed_branchen_data)
         top_5 = umsatz_pro_merchant.nlargest(5, 'gesamtumsatz')
         flop_5 = umsatz_pro_merchant.nsmallest(5, 'gesamtumsatz')
-        fig1, fig2 = create_branchen_charts(umsatz_Jahr_Merchant, top_5, flop_5)
+        fig1, fig2 = create_branchen_charts(umsatz_monat_merchant, top_5, flop_5)
 
         # =================== Online Umsatzanteil =====================
 
@@ -853,16 +856,8 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
         return [
                 dbc.Col(create_kpi_cards(kpis), md=3, sm=12, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start gap-2 overflow-y-scroll"),
                 dbc.Col([
-                    dbc.Col([
-                        dbc.Card([
-                            dbc.CardHeader(
-                                dbc.Tabs([
-                                    dbc.Tab(dcc.Graph(figure=fig1, id="card-content", className="card-text w-100", style={"height": "350px"}), label="Top 5", tab_id="tab-1"),
-                                    dbc.Tab(dcc.Graph(figure=fig2, id="card-content", className="card-text w-100", style={"height": "350px"}), label="Flop 5", tab_id="tab-2"),
-                                ], active_tab="tab-1"),
-                            ),
-                        ], style={"background-color": "#FFFFFF"}),
-                    ], width=12, className="detail-view-right-section-1"),
+                        dcc.Graph(figure=fig1, id="card-content", className="card-text w-100", style={"height": "350px"}),
+                        dcc.Graph(figure=fig2, id="card-content", className="card-text w-100", style={"height": "350px"}),
                 ], md=9, sm=12, className="detail-view-right-section"),
         ]
 
@@ -993,9 +988,6 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
                 dbc.Col(
                     create_kpi_cards(kpis)
                 ,width=12, className="detail-view-kpis d-flex flex-wrap justify-content-start align-content-start gap-2 overflow-y-scroll"),
-                dbc.Col([
-                    
-                ], width=12)
             ], md=3, sm=12, className="detail-view-left-section" ),
             dbc.Col([
                 dbc.Col([
@@ -1639,8 +1631,6 @@ def get_average_credit_score_in_branche(timed_branchen_data):
 
     # Passende Nutzer finden
     matched_users = users_data[users_data['id'].isin(unique_clients_cs)]
-    
-    print(f"Für Branche: , Kunden: {len(unique_clients_cs)}")
 
     # Wenn keine Nutzer oder kein Score, dann nichts zurückgeben
     if matched_users.empty or 'credit_score' not in matched_users.columns:
