@@ -35,6 +35,13 @@ plotly_layout_config = {
     "legend_bgcolor": "rgba(0, 0, 0, 0)",  # Hintergrund der Legende
 }
 
+COMPARE_PERIOD_OPTIONS = [
+    {"label": "Letzter Monat", "value": "last_month"},
+    {"label": "Letzte 3 Monate", "value": "last_3_months"},
+    {"label": "Letzte 6 Monate", "value": "last_6_months"},
+    {"label": "Letztes Jahr", "value": "last_year"},
+]
+
 
 ###############
 # Einkommensklassen Definition (für income_category_bar_component)
@@ -140,12 +147,7 @@ app.layout = dbc.Container([
                     dbc.Col([
                         dcc.Dropdown(
                             id='compare_period_dropdown',
-                            options=[
-                                {"label": "Letzter Monat", "value": "last_month"},
-                                {"label": "Letzte 3 Monate", "value": "last_3_months"},
-                                {"label": "Letzte 6 Monate", "value": "last_6_months"},
-                                {"label": "Letztes Jahr", "value": "last_year"},
-                            ],
+                            options=COMPARE_PERIOD_OPTIONS,
                             value="last_month",
                             className="time-dropdown",
                             clearable=False,
@@ -231,6 +233,12 @@ app.layout = dbc.Container([
         ], className="h-100 overflow-scroll")
     ], width=12, className="h-100 position-absolute left-0", id="popup5")
 ], fluid=True, className="body position-relative")
+
+def get_compare_period_label(value):
+    for option in COMPARE_PERIOD_OPTIONS:
+        if option["value"] == value:
+            return option["label"]
+    return value
 
 def load_all_period_duckdb(year, month, compare_period, parquet_folder="./parquet_data/"):
     # Gleiches Perioden-Building wie oben
@@ -860,7 +868,7 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
 
     if category == 'Unternehmen' and entity is not None:
 
-        gesamt_ausgaben_pro_client = pd.read_parquet("./parquet_data/gesamt_ausgaben_pro_client.parquet")
+        
 
         # Umsatz pro Monat berechnen
         if timed_unternehmen_data.empty or 'date' not in timed_unternehmen_data.columns:
@@ -898,6 +906,7 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
         DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
         DurchschnittTransaktionenProKäuferDisplay = f"{DurchschnittTransaktionenProKäufer:,.2f} ".replace(",", "X").replace(".", ",").replace("X", ".")
 
+        gesamt_ausgaben_pro_client = df.groupby("client_id")["amount"].sum().reset_index(name="gesamt_ausgaben")
         Durchschnitt_gesamt = gesamt_ausgaben_pro_client['gesamt_ausgaben'].mean()
         UnternehmensAusgabenProClient = timed_unternehmen_data.groupby("client_id")["amount"].sum()
 
@@ -905,18 +914,10 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
         ConsumerMoneySpent = (DurchschnittBranche / Durchschnitt_gesamt) * 100
         ConsumerMoneySpentDisplay = f"{ConsumerMoneySpent:,.2f} % ".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        CustomerLifetimeValue = Durchschnitt_gesamt / EinzigartigeKäufer * 100
+        gesamt_ausgaben_pro_client = timed_unternehmen_data.groupby("client_id")["amount"].sum()
+        CustomerLifetimeValue = gesamt_ausgaben_pro_client.mean()
         CustomerLifetimeValueDisplay = f"{CustomerLifetimeValue:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        bundesstaat_transaktionen = timed_unternehmen_data.groupby('merchant_state')['merchant_id'].count().reset_index(name='transaction_count')
-
-
-        
-
-        # =====================
-
-
-    
         #MarktkapitalisierungUnternehmen = unternehmen_transaktionen["amount"].sum()
         if not timed_unternehmen_data.empty and 'mcc' in timed_unternehmen_data.columns:
             unternehmen_mcc = timed_unternehmen_data['mcc'].iloc[0]
@@ -956,13 +957,32 @@ def render_detailview(category, entity, selected_year, selected_month, timed_tra
         )
 
 
+        # Umsatzwachstum: Nur Startmonat vs. Endmonat vergleichen
+        umsatzwachstum_display = "n/a"
+        if not timed_unternehmen_data.empty and 'date' in timed_unternehmen_data.columns:
+            timed_unternehmen_data['date'] = pd.to_datetime(timed_unternehmen_data['date'])
+            timed_unternehmen_data['year_month'] = timed_unternehmen_data['date'].dt.to_period('M')
+
+            # Finde Start- und Endmonat im aktuellen Zeitraum
+            min_month = timed_unternehmen_data['year_month'].min()
+            max_month = timed_unternehmen_data['year_month'].max()
+
+            # Umsatz im Start- und Endmonat berechnen
+            umsatz_start = timed_unternehmen_data[timed_unternehmen_data['year_month'] == min_month]['amount'].sum()
+            umsatz_end = timed_unternehmen_data[timed_unternehmen_data['year_month'] == max_month]['amount'].sum()
+
+            if umsatz_start > 0:
+                umsatzwachstum = ((umsatz_end - umsatz_start) / umsatz_start) * 100
+                umsatzwachstum_display = f"{umsatzwachstum:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
+            else:
+                umsatzwachstum_display = "n/a"
         # =====================
 
         kpis = [
             {'Marktkapitalisierung': MarktkapitalisierungDisplay},
             {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöheDisplay},
             {'durchschn. Transaktionen pro Käufer': DurchschnittTransaktionenProKäuferDisplay},
-            {'Umsatzwachstum': 87.42},
+            {'Umsatzwachstum': umsatzwachstum_display},
             {'Consumer Money Spent (%)': ConsumerMoneySpentDisplay},
             {'Käufer': EinzigartigeKäufer},
             {'Customer Lifetime Value': CustomerLifetimeValueDisplay},
@@ -1224,21 +1244,26 @@ def render_detailview5(category, timed_branchen_data, timed_transaction_data, en
     Output("branche_title5", "children"),
     Input("category_dropdown", "value"),
     Input("entity_dropdown", "value"),
+    Input("year_dropdown", "value"),
+    Input("month_dropdown", "value"),
+    Input("compare_period_dropdown", "value"),
 )
-def update_detailView(category, entity):
+def update_detailView(category, entity, year, month, compare_period):
+    compare_period_label = get_compare_period_label(compare_period) if compare_period else ""
+    zeitraum = f"{month}.{year} ({compare_period_label})" if year and month and compare_period else ""
+
     if category == 'Branchen' and entity is not None:
         beschreibung = mcc_codes_data.loc[
             mcc_codes_data["mcc_code"] == entity, "description"
         ].values
 
         if beschreibung.size > 0:
-            value = f"{entity} – {beschreibung[0]}"
+            value = f"{entity} – {beschreibung[0]} - {zeitraum}"
         else:
-            value = f"{entity} – Beschreibung nicht gefunden"
-        # Gib immer ein Tupel mit drei gleichen Strings zurück!
+            value = f"{entity} – Beschreibung nicht gefunden | {zeitraum}"
         return value, value, value, value
     if category == 'Unternehmen' and entity is not None:
-        value = f"Unternehmensprofil: {entity}"
+        value = f"Unternehmensprofil: {entity} | {zeitraum}"
         return value, value, value, value
     return "", "", "", ""
 
