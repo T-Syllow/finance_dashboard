@@ -1272,9 +1272,9 @@ def calculate_avg_income_for_branche(timed_branchen_data):
 
     users_data['id'] = users_data['id'].astype(str)
 
-    unique_clients = timed_branchen_data['client_id'].dropna().astype(str).unique()
+    unique_clients_ai = timed_branchen_data['client_id'].dropna().astype(str).unique()
 
-    matching_users = users_data[users_data['id'].astype(str).isin(unique_clients)]
+    matching_users = users_data[users_data['id'].astype(str).isin(unique_clients_ai)]
 
     avg_income = matching_users['per_capita_income'].mean()
 
@@ -1296,8 +1296,8 @@ def income_category_bar_component(avg_income_str, timed_branchen_data):
         return html.P("Keine Transaktionsdaten verfügbar.")
 
     # hole die passenden User-Daten
-    unique_clients = timed_branchen_data['client_id'].astype(str).unique()
-    matched_users = users_data[users_data['id'].astype(str).isin(unique_clients)]
+    unique_clients_cb = timed_branchen_data['client_id'].astype(str).unique()
+    matched_users = users_data[users_data['id'].astype(str).isin(unique_clients_cb)]
 
     if matched_users.empty or 'per_capita_income' not in matched_users.columns:
         return html.P("Keine Nutzerinformationen verfügbar.")
@@ -1635,10 +1635,12 @@ def get_average_credit_score_in_branche(timed_branchen_data):
         return None
 
     # Kunden-IDs sammeln
-    unique_clients = timed_branchen_data['client_id'].astype(str).unique()
+    unique_clients_cs = timed_branchen_data['client_id'].astype(str).unique()
 
     # Passende Nutzer finden
-    matched_users = users_data[users_data['id'].isin(unique_clients)]
+    matched_users = users_data[users_data['id'].isin(unique_clients_cs)]
+    
+    print(f"Für Branche: , Kunden: {len(unique_clients_cs)}")
 
     # Wenn keine Nutzer oder kein Score, dann nichts zurückgeben
     if matched_users.empty or 'credit_score' not in matched_users.columns:
