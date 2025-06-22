@@ -707,8 +707,9 @@ def toggle_class4(n1, n2, current_class):
 
 def process_branchen_data(timed_branchen_data):
     timed_branchen_data["month"] = pd.to_datetime(timed_branchen_data["date"]).dt.to_period('M')
+    # umsatz_monat_merchant.groupby('month')['Umsatz_im_Monat'].sum().reset_index()
     umsatz_monat_merchant = timed_branchen_data.groupby(["month", "merchant_id"])["amount"].sum().reset_index(name="Umsatz_im_Monat")
-    umsatz_monat_merchant['month'] = umsatz_monat_merchant['month'].astype(str)  # <-- Fix!
+    umsatz_monat_merchant['month'] = umsatz_monat_merchant['month'].astype(str)  
     umsatz_pro_merchant = umsatz_monat_merchant.groupby("merchant_id")["Umsatz_im_Monat"].sum().reset_index(name="gesamtumsatz")
     return umsatz_monat_merchant, umsatz_pro_merchant
 
@@ -729,15 +730,35 @@ def create_kpi_cards(kpis):
         for key, value in kpi.items()
     ]
 
-def create_branchen_charts(umsatz_monat_merchant, top_5, flop_5):
-    umsatz_monat_merchant_top = umsatz_monat_merchant[umsatz_monat_merchant['merchant_id'].isin(top_5['merchant_id'])]
-    umsatz_monat_merchant_flop = umsatz_monat_merchant[umsatz_monat_merchant['merchant_id'].isin(flop_5['merchant_id'])]
-    # Falls wir die Monatsnummern auf der X-Achse einfügen wollen, können wir das hier tun:
+def create_branchen_charts(umsatz_monat_merchant):
+    # Gruppiere nach Monat und summiere den Umsatz
+    df_grouped = umsatz_monat_merchant.groupby('month')['Umsatz_im_Monat'].sum().reset_index()
+    # Sortiere Monate (optional, falls nötig)
+    df_grouped['month'] = pd.Categorical(df_grouped['month'], ordered=True)
+    # Bar Chart
+    fig1 = px.bar(
+        df_grouped,
+        x='month',
+        y='Umsatz_im_Monat',
+        title="Monatlicher Umsatz der Branche",
+        labels={'Umsatz_im_Monat': 'Umsatz', 'month': 'Monat'},
+        text_auto=True
+    )
+    fig1.update_layout(template='plotly_white')
 
-    # umsatz_monat_merchant_top['monat_num'] = pd.to_datetime(umsatz_monat_merchant_top['month']).dt.month.astype(str).str.zfill(2)
-    # umsatz_monat_merchant_flop['monat_num'] = pd.to_datetime(umsatz_monat_merchant_flop['month']).dt.month.astype(str).str.zfill(2)
-    fig1 = px.line( umsatz_monat_merchant_top, x='month', y='Umsatz_im_Monat', color='merchant_id', markers=True, title="Monatlicher Umsatz Top 5 Händler")
-    fig2 = px.line( umsatz_monat_merchant_flop, x='month', y='Umsatz_im_Monat', color='merchant_id', markers=True, title="Monatlicher Umsatz Flop 5 Händler")
+    df_grouped2 = umsatz_monat_merchant.groupby('month')['Umsatz_im_Monat'].count().reset_index(name='Anzahl_Transaktionen')
+    # Sortiere Monate (optional)
+    df_grouped2['month'] = pd.Categorical(df_grouped['month'], ordered=True)
+    # Liniendiagramm
+    fig2 = px.line(
+        df_grouped2,
+        x='month',
+        y='Anzahl_Transaktionen',
+        title="Anzahl der Transaktionen pro Monat (Branche)",
+        labels={'month': 'Monat', 'Anzahl_Transaktionen': 'Transaktionen'},
+        markers=True
+    )
+    fig2.update_layout(template='plotly_white')
     return fig1, fig2
 
 @app.callback(
@@ -761,9 +782,8 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
     if category == 'Branchen' and entity is not None:
 
         umsatz_monat_merchant, umsatz_pro_merchant = process_branchen_data(timed_branchen_data)
-        top_5 = umsatz_pro_merchant.nlargest(5, 'gesamtumsatz')
-        flop_5 = umsatz_pro_merchant.nsmallest(5, 'gesamtumsatz')
-        fig1, fig2 = create_branchen_charts(umsatz_monat_merchant, top_5, flop_5)
+        
+        fig1, fig2 = create_branchen_charts(umsatz_monat_merchant)
 
         # =================== Online Umsatzanteil =====================
 
@@ -856,14 +876,12 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
         return [
                 dbc.Col(create_kpi_cards(kpis), md=3, sm=12, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start gap-2 overflow-y-scroll"),
                 dbc.Col([
-                        dcc.Graph(figure=fig1, id="card-content", className="card-text w-100", style={"height": "350px"}),
-                        dcc.Graph(figure=fig2, id="card-content", className="card-text w-100", style={"height": "350px"}),
+                        dcc.Graph(figure=fig1, id="card-content1", className="card-text w-100", style={"height": "350px"}),
+                        dcc.Graph(figure=fig2, id="card-content2", className="card-text w-100", style={"height": "350px"}),
                 ], md=9, sm=12, className="detail-view-right-section"),
         ]
 
     if category == 'Unternehmen' and entity is not None:
-
-        
 
         # Umsatz pro Monat berechnen
         if timed_unternehmen_data.empty or 'date' not in timed_unternehmen_data.columns:
@@ -984,11 +1002,9 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
         ]
 
         return [
-            dbc.Col([
-                dbc.Col(
-                    create_kpi_cards(kpis)
-                ,width=12, className="detail-view-kpis d-flex flex-wrap justify-content-start align-content-start gap-2 overflow-y-scroll"),
-            ], md=3, sm=12, className="detail-view-left-section" ),
+            dbc.Col(
+                create_kpi_cards(kpis)
+            , md=3, sm=12, className="detail-view-left-section detail-view-kpis d-flex flex-wrap justify-content-start align-content-start gap-2 overflow-y-scroll" ),
             dbc.Col([
                 dbc.Col([
                     dcc.Graph(figure=bar_umsatz_pro_monat, className="w-100", style={"height": "400px"}),
