@@ -470,7 +470,7 @@ def create_merchant_card(merchant_id, total_revenue, transaction_count, standort
             dbc.CardBody([
                 html.H5("Unternehmensprofil", className="card-title"),
                 html.P(f"Branche: {branchenbeschreibung}", className="card-text"),
-                html.P(f"Gesamtumsatz: {total_revenue:.2f} $", className="card-text"),
+                html.P(f"Gesamtumsatz: {total_revenue}", className="card-text"),
                 html.P(f"Marktanteil: {marktanteil_display}", className="card-text"),
                 html.P(f"Anzahl Transaktionen: {transaction_count}", className="card-text"),
                 html.P(f"Umsatzanteil der Onlinetransaktionen:  {online_umsatz_anteil_display}", className="card-text"),
@@ -515,6 +515,7 @@ def handle_unternehmen(df_merchant, df_branche_of_merchant, entity_value):
         .drop_duplicates()
         .sort_values(by=['merchant_state', 'merchant_city'])
     )
+    total_revenue_display = f"{total_revenue:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
 
     branchenbeschreibung = "Unbekannte Branche"
 
@@ -578,7 +579,7 @@ def handle_unternehmen(df_merchant, df_branche_of_merchant, entity_value):
         template="plotly_white",
     )
 
-    return create_merchant_card(merchant_id, total_revenue, len(df_merchant), standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart, online_umsatz_anteil_display)
+    return create_merchant_card(merchant_id, total_revenue_display, len(df_merchant), standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart, online_umsatz_anteil_display)
 
 def handle_branchen(df_branche):
 
@@ -1257,8 +1258,39 @@ def render_detailview5(category, timed_branchen_data, timed_transaction_data, en
     Input("compare_period_dropdown", "value"),
 )
 def update_detailView(category, entity, year, month, compare_period):
-    compare_period_label = get_compare_period_label(compare_period) if compare_period else ""
-    zeitraum = f"{month}.{year} ({compare_period_label})" if year and month and compare_period else ""
+    # Zeitraum-Logik anpassen
+    zeitraum = ""
+    if year and month and compare_period:
+        year = int(year)
+        month = int(month)
+        if compare_period == "last_year":
+            start_year = year - 1
+            start_month = month
+            end_year = year
+            end_month = month
+            zeitraum = f"{str(start_month).zfill(2)}.{start_year} - {str(end_month).zfill(2)}.{end_year}"
+        elif compare_period == "last_6_months":
+            # Berechne Startmonat und Jahr für 6 Monate zurück
+            start_month = month - 5
+            start_year = year
+            if start_month <= 0:
+                start_month += 12
+                start_year -= 1
+            zeitraum = f"{str(start_month).zfill(2)}.{start_year} - {str(month).zfill(2)}.{year}"
+        elif compare_period == "last_3_months":
+            # Berechne Startmonat und Jahr für 3 Monate zurück
+            start_month = month - 2
+            start_year = year
+            if start_month <= 0:
+                start_month += 12
+                start_year -= 1
+            zeitraum = f"{str(start_month).zfill(2)}.{start_year} - {str(month).zfill(2)}.{year}"
+        elif compare_period == "last_month":
+            zeitraum = f"{str(month).zfill(2)}.{year}"
+        else:
+            zeitraum = f"{str(month).zfill(2)}.{year}"
+    else:
+        zeitraum = ""
 
     if category == 'Branchen' and entity is not None:
         beschreibung = mcc_codes_data.loc[
@@ -1266,12 +1298,12 @@ def update_detailView(category, entity, year, month, compare_period):
         ].values
 
         if beschreibung.size > 0:
-            value = f"{entity} – {beschreibung[0]} - {zeitraum}"
+            value = f"{entity} – {beschreibung[0]}  ({zeitraum})"
         else:
-            value = f"{entity} – Beschreibung nicht gefunden | {zeitraum}"
+            value = f"{entity} – Beschreibung nicht gefunden  ({zeitraum})"
         return value, value, value, value
     if category == 'Unternehmen' and entity is not None:
-        value = f"Unternehmensprofil: {entity} | {zeitraum}"
+        value = f"Unternehmensprofil: {entity}  ({zeitraum})"
         return value, value, value, value
     return "", "", "", ""
 
