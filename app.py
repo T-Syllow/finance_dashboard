@@ -39,7 +39,7 @@ COMPARE_PERIOD_OPTIONS = [
     {"label": "Letzter Monat", "value": "last_month"},
     {"label": "Letzte 3 Monate", "value": "last_3_months"},
     {"label": "Letzte 6 Monate", "value": "last_6_months"},
-    {"label": "Letztes Jahr", "value": "last_year"},
+    # {"label": "Letztes Jahr", "value": "last_year"},
 ]
 
 
@@ -631,7 +631,7 @@ def handle_branchen(df_branche):
     flop_5['total_revenue'] = flop_5['total_revenue'].map("{:,.2f} $".format).str.replace(",", "X").str.replace(".", ",").str.replace("X", ".")
     top_content = [
         dbc.ListGroupItem(
-            f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']} $",
+            f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']}",
             className="ranklist_item"
         )
         for _, row in top_5.iterrows()
@@ -639,7 +639,7 @@ def handle_branchen(df_branche):
 
     flop_content = [
         dbc.ListGroupItem(
-            f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']} $",
+            f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']}",
             className="ranklist_item"
         )
         for _, row in flop_5.iterrows()
@@ -1243,7 +1243,7 @@ def render_detailview5(category, timed_branchen_data, timed_transaction_data, en
                 dbc.Card([
                     dbc.CardBody([
                         html.H6("Kartennutzung nach Typ & Marke", className="card-title"),
-                        dcc.Graph(figure=plot_card_type_distribution_by_brand(timed_branchen_data), style={"height": "200px"}, className="w-100"),
+                        dcc.Graph(figure=plot_card_type_distribution_by_brand(timed_branchen_data), style={"height": "300px"}, className="w-100"),
                     ], className="persona-card")
                 ], className="h-100")
             ], md=4, sm=12, className="mb-3"),
@@ -1251,7 +1251,7 @@ def render_detailview5(category, timed_branchen_data, timed_transaction_data, en
                 dbc.Card([
                     dbc.CardBody([
                         html.H6("Geschlechterverteilung", className="card-title"),
-                        dcc.Graph(figure=get_dominant_gender_in_branche(timed_branchen_data), config={"displayModeBar": False}, style={"height": "200px"}, className="w-100"),
+                        dcc.Graph(figure=get_dominant_gender_in_branche(timed_branchen_data), config={"displayModeBar": False}, style={"height": "300px"}, className="w-100"),
                     ], className="persona-card")
                 ], className="h-100")
             ], md=4, sm=12, className="mb-3"),
@@ -1262,7 +1262,7 @@ def render_detailview5(category, timed_branchen_data, timed_transaction_data, en
                         dcc.Graph(
                             figure=erstelle_kredit_score_anzeige(get_average_credit_score_in_branche(timed_branchen_data)),
                             config={"displayModeBar": False},
-                            style={"height": "200px"},
+                            style={"height": "300px"},
                             className="w-100"
                         )
                     ], className="persona-card")
