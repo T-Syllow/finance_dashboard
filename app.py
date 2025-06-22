@@ -121,118 +121,143 @@ app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 
 app.layout = dbc.Container([ 
-    dcc.Store(id='timed_transaction_data'),
-    dcc.Store(id='timed_branchen_transaction_data'),
-    dcc.Store(id='timed_unternehmen_transaction_data'),
-    dbc.Row([
-        dbc.Col([
+        dcc.Store(id='timed_transaction_data'),
+        dcc.Store(id='timed_branchen_transaction_data'),
+        dcc.Store(id='timed_unternehmen_transaction_data'),
+        dbc.Row([
             dbc.Col([
-                html.Div([
-                    dbc.Col([
-                        dcc.Dropdown(
-                            id='year_dropdown',
-                            options=[{"label": y, "value": y} for y in years],
-                            value=years[8],
-                            className="time-dropdown",
-                        ),
-                    ], width=2),
-                    dbc.Col([
-                        dcc.Dropdown(
-                            id='month_dropdown',
-                            options=[{"label": m, "value": m} for m in months],
-                            value=months[10],
-                            className="time-dropdown",
-                        ),
-                    ], width=2),
-                    dbc.Col([
-                        dcc.Dropdown(
-                            id='compare_period_dropdown',
-                            options=COMPARE_PERIOD_OPTIONS,
-                            value="last_3_months",
-                            className="time-dropdown",
-                            clearable=False,
-                        ),
-                    ], width=4),
-                ], className="d-flex gap-2 w-100 flex-wrap justify-content-start"),
+                dbc.Col([
+                    html.Div([
+                        dbc.Col([
+                            dcc.Dropdown(
+                                id='year_dropdown',
+                                options=[{"label": y, "value": y} for y in years],
+                                value=years[8],
+                                className="time-dropdown",
+                            ),
+                        ], width=2),
+                        dbc.Col([
+                            dcc.Dropdown(
+                                id='month_dropdown',
+                                options=[{"label": m, "value": m} for m in months],
+                                value=months[10],
+                                className="time-dropdown",
+                            ),
+                        ], width=2),
+                        dbc.Col([
+                            dcc.Dropdown(
+                                id='compare_period_dropdown',
+                                options=COMPARE_PERIOD_OPTIONS,
+                                value="last_3_months",
+                                className="time-dropdown",
+                                clearable=False,
+                            ),
+                        ], width=4),
+                    ], className="d-flex gap-2 w-100 flex-wrap justify-content-start"),
 
-            ], width=12, id='zeitraum_container'),
+                ], width=12, id='zeitraum_container'),
+                dbc.Col([
+                    dbc.Col([
+                        dcc.Dropdown(['Unternehmen', 'Branchen'], 'Branchen', id='category_dropdown',  className="main-dropdown")
+                    ], width=3),
+                    dbc.Col([
+                        dcc.Dropdown(['5411'],'5411', id='entity_dropdown', className="main-dropdown"),
+                    ], width=8),
+                ], width=12, className="d-flex py-2 gap-2 justify-content-start"),
+            ], width=6, className="px-5 filterbar"),
             dbc.Col([
-                dbc.Col([
-                    dcc.Dropdown(['Unternehmen', 'Branchen'], 'Branchen', id='category_dropdown',  className="main-dropdown")
-                ], width=3),
-                dbc.Col([
-                    dcc.Dropdown(['5411'],'5411', id='entity_dropdown', className="main-dropdown"),
-                ], width=8),
-            ], width=12, className="d-flex py-2 gap-2 justify-content-start"),
-        ], width=6, className="px-5 filterbar"),
-        dbc.Col([
-            dbc.Button('KPIs anzeigen', className='toggle_button', id="toggle-button" , n_clicks=0),
-            dbc.Button('Branche anzeigen', className='toggle_button', id="toggle-button2" , n_clicks=0),
-            dbc.Button('Unternehmen anzeigen', className='toggle_button', id="toggle-button4" , n_clicks=0),
-            dbc.Button('Persona anzeigen', className='toggle_button', id="toggle-button5" , n_clicks=0)
-        ], width=6, className="px-5 d-flex justify-content-end align-items-center gap-2"),
-    ], className="navbar"),
-    dbc.Row([
-        dbc.Col([
+                dbc.Button('KPIs anzeigen', className='toggle_button', id="toggle-button" , n_clicks=0),
+                dbc.Button('Branche anzeigen', className='toggle_button', id="toggle-button2" , n_clicks=0),
+                dbc.Button('Unternehmen anzeigen', className='toggle_button', id="toggle-button4" , n_clicks=0),
+                dbc.Button('Persona anzeigen', className='toggle_button', id="toggle-button5" , n_clicks=0)
+            ], width=6, className="px-5 d-flex justify-content-end align-items-center gap-2"),
+        ], className="navbar"),
+        dbc.Row([
+            dbc.Col([
                 
-        ], width=6, className="d-flex justify-content-center align-items-start", id="map-container"),
+            ], width=6, className="d-flex justify-content-center align-items-start", id="map-container"),
+            dbc.Col([
+                dcc.Loading(
+                    id="loading-rightSection",
+                    type="circle",
+                    children=dbc.Row([
+                
+                    ], id="right_section"),
+                )
+            ], width=5,),
+        ], className="h-100 d-flex justify-content-between align-items-start"),
         dbc.Col([
             dbc.Row([
+                dbc.Col([
+                    html.H2("", id="branche_title"),
+                    html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close")
+                ], width=12, className="px-5 py-2 d-flex justify-content-between"),
+            ], className="popup-header"),
+                dcc.Loading(
+                    id="loading-detailview",
+                    type="circle",
+                    children=dbc.Row([
+                        
+                    ], className="h-100 d-flex p-3", id="detail-view")
+                ),
             
-            ], id="right_section"),
-        ], width=5,),
-    ], className="h-100"),
-    dbc.Col([
-        dbc.Row([
-            dbc.Col([
-                html.H2("", id="branche_title"),
-                html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close")
-            ], width=12, className="px-5 py-2 d-flex justify-content-between"),
-        ], className="popup-header"),
-        dbc.Row([
-            
-        ], className="h-100 d-flex p-3", id="detail-view")
-    ], width=12, className="h-100 position-absolute left-0", id="popup"),
-    dbc.Col([
-        dbc.Row([
-            dbc.Col([
-                html.H2("", id="branche_title2"),
-                html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close2")
-            ], width=12, className="px-5 py-2 d-flex justify-content-between"),
-        ], className="popup-header"),
-        dbc.Row([
-            dbc.Col([
-                dash_table.DataTable(data=[], page_size=10, style_table={'overflowX': 'auto'}, id='tbl_detailansicht'),
-            ], width=12, className="d-flex p-3", id="detail-view2")
-        ], className="h-100 overflow-auto")
-    ], width=12, className="h-100 position-absolute left-0", id="popup2"),
-    dbc.Col([
-        dbc.Row([
-            dbc.Col([
-                html.H2("", id="branche_title4"),
-                html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close4")
-            ], width=12, className="px-5 py-2 d-flex justify-content-between"),
-        ], className="popup-header"),
-        dbc.Row([
-            dbc.Col([
-                dash_table.DataTable(data=[], page_size=10, style_table={'overflowX': 'auto'}, id='tbl_detailansicht_Unternehmen'),
-            ], width=12, className="d-flex p-3", id="detail-view4")
-        ], className="h-100 overflow-auto")
-    ], width=12, className="h-100 position-absolute left-0", id="popup4"),
-    dbc.Col([
-        dbc.Row([
-            dbc.Col([
-                html.H2("", id="branche_title5"),
-                html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close5")
-            ], width=12, className="px-5 py-2 d-flex justify-content-between"),
-        ], className="popup-header"),
-        dbc.Row([
-            dbc.Col([
+        ], width=12, className="h-100 position-absolute left-0", id="popup"),
+        dbc.Col([
+            dbc.Row([
+                dbc.Col([
+                    html.H2("", id="branche_title2"),
+                    html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close2")
+                ], width=12, className="px-5 py-2 d-flex justify-content-between"),
+            ], className="popup-header"),
+            dbc.Row([
+                dcc.Loading(
+                    id="loading-detailview2",
+                    type="circle",
+                    children=dbc.Col([
+                        dash_table.DataTable(data=[], page_size=10, style_table={'overflowX': 'auto'}, id='tbl_detailansicht'),
+                    ], width=12, className="d-flex p-3", id="detail-view2")
+                )
                 
-            ], width=12, className="d-flex p-3", id="detail-view5")
-        ], className="h-100 overflow-scroll")
-    ], width=12, className="h-100 position-absolute left-0", id="popup5")
+            ], className="h-100 overflow-auto")
+        ], width=12, className="h-100 position-absolute left-0", id="popup2"),
+        dbc.Col([
+            dbc.Row([
+                dbc.Col([
+                    html.H2("", id="branche_title4"),
+                    html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close4")
+                ], width=12, className="px-5 py-2 d-flex justify-content-between"),
+            ], className="popup-header"),
+            dbc.Row([
+                dcc.Loading(
+                    id="loading-detailview4",
+                    type="circle",
+                    children=dbc.Col([
+                        dash_table.DataTable(data=[], page_size=10, style_table={'overflowX': 'auto'}, id='tbl_detailansicht_Unternehmen'),
+                    ], width=12, className="d-flex p-3", id="detail-view4")
+                )
+            ], className="h-100 overflow-auto")
+        ], width=12, className="h-100 position-absolute left-0", id="popup4"),
+        dbc.Col([
+            dbc.Row([
+                dbc.Col([
+                    html.H2("", id="branche_title5"),
+                    html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close5")
+                ], width=12, className="px-5 py-2 d-flex justify-content-between"),
+            ], className="popup-header"),
+            dbc.Row([
+                dcc.Loading(
+                    id="loading-detailview5",
+                    type="circle",
+                    children=dbc.Col([
+                        
+                    ], width=12, className="d-flex p-3", id="detail-view5")
+                )
+                
+            ], className="h-100 overflow-scroll")
+        ], width=12, className="h-100 position-absolute left-0", id="popup5")
 ], fluid=True, className="body position-relative")
+
+
 
 def get_compare_period_label(value):
     for option in COMPARE_PERIOD_OPTIONS:
@@ -601,9 +626,12 @@ def handle_branchen(df_branche):
     top_5 = umsatz_pro_merchant.nlargest(5, 'total_revenue')
     flop_5 = umsatz_pro_merchant.nsmallest(5, 'total_revenue')
 
+    # f"{online_umsatz_anteil:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
+    top_5['total_revenue'] = top_5['total_revenue'].map("{:,.2f} $".format).str.replace(",", "X").str.replace(".", ",").str.replace("X", ".")
+    flop_5['total_revenue'] = flop_5['total_revenue'].map("{:,.2f} $".format).str.replace(",", "X").str.replace(".", ",").str.replace("X", ".")
     top_content = [
         dbc.ListGroupItem(
-            f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} $",
+            f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']} $",
             className="ranklist_item"
         )
         for _, row in top_5.iterrows()
@@ -611,7 +639,7 @@ def handle_branchen(df_branche):
 
     flop_content = [
         dbc.ListGroupItem(
-            f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']:.2f} $",
+            f"Händler {row['merchant_id']:.0f} – Umsatz: {row['total_revenue']} $",
             className="ranklist_item"
         )
         for _, row in flop_5.iterrows()
