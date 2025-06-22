@@ -1,0 +1,348 @@
+.test {
+    font-size: 80px;
+}
+
+.body {
+    height: 100vh;
+    overflow: hidden;
+    --bs-gutter-x: 0rem !important;
+    background-color: white;
+}
+
+.navbar {
+    border-style: solid;
+    border-width: 0.5px;
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+.filterbar {
+    border-right: solid;
+    border-width: 0.5px;
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+.ranklist_item {
+    border: none;
+    border-radius: 6px;
+    background: #f8f9fa;
+    margin-bottom: 6px;
+    transition: background 0.3s, color 0.3s;
+    font-size: 10px;
+    color: #222;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    padding: 10px 16px;
+}
+
+.ranklist_item:nth-child(1) { background: rgb(8,81,156); color: #fff; }
+.ranklist_item:nth-child(2) { background: rgb(49,130,189); color: #fff; }
+.ranklist_item:nth-child(3) { background: rgb(107,174,214); color: #fff; }
+.ranklist_item:nth-child(4) { background: rgb(158,202,225);  color: #222; }
+.ranklist_item:nth-child(5) { background: rgb(222,235,247);    color: #222; }
+
+.ranklist_item:hover {
+    background-color: #e3f2fd;
+    color: #0d6efd;
+    cursor: pointer;
+}
+
+.ranklist {
+    padding: 0 !important;
+    padding-top: 30px !important;
+    margin: 0;
+    list-style: none;
+    width: 90%;
+}
+
+.ranklist-title {
+    font-size: 16px;
+    margin-top: 10px;
+    width: 10%;
+}
+
+.ranklist_container {
+    margin-left: 0;
+    margin-right: 0;
+    padding: 12px 0 12px 0;
+}
+
+.ranklist_wrapper {
+
+}
+
+#popup {
+    transition: 525ms ease-in-out;
+    background-color: white;
+}
+
+#popup2 {
+    transition: 525ms ease-in-out;
+    background-color: white;
+}
+
+#popup4 {
+    transition: 525ms ease-in-out;
+    background-color: white;
+}
+
+#popup5 {
+    transition: 525ms ease-in-out;
+    background-color: white;
+}
+
+#map-container {
+    border-radius: 10px;
+    background-color: white;
+    padding: 20px;
+    height: 70%;
+    margin-left: 50px;
+    margin-top: 20px;
+}
+
+.popup-header {
+    border-bottom: solid rgba(0, 0, 0, 0.2);
+}
+
+.toggle_button {
+    border-radius: 0px;
+    background-color: black;
+    color: white;
+    transition: 225ms ease-in-out;
+    width: 50%;
+    border: solid black;
+    font-size: 14px;
+}
+
+.toggle_button:hover {
+    border-radius: 0px;
+    background-color: white;
+    color: black;
+    transition: 225ms ease-in-out;
+    width: 50%;
+    border: solid rgb(100, 100, 255);
+}
+
+#branche_title {
+    margin-bottom: 0px !important;
+}
+
+#branche_title2 {
+    margin-bottom: 0px !important;
+}
+
+#branche_title4 {
+    margin-bottom: 0px !important;
+}
+
+#branche_title5 {
+    margin-bottom: 0px !important;
+}
+
+.datepicker:first-child {
+    background: #161d25;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+    color: white;
+}
+
+.datepicker {
+    border: solid black !important;
+    transition: 225ms ease-in-out;
+}
+
+.datepicker:hover {
+    border: solid rgb(100, 100, 255) !important;
+    cursor: pointer !important;
+}
+
+.datepicker:first-child div:first-child {
+    background-color: #161d25;
+}
+
+.datepicker:first-child div:first-child input {
+    background-color: #161d25;
+    color: white;
+    font-size: 14px;
+    padding: 5px !important;
+    text-align: center;
+}
+
+.datepicker:first-child div:first-child input:hover {
+    cursor: pointer !important;
+}
+
+.datepicker:first-child  div:first-child div:first-child div:first-child {
+    border: none;
+}
+
+
+.CalendarMonth_caption {
+    color: white;
+}
+
+.DayPicker_weekHeader_ul {
+    color: white;
+}
+
+.icon1 {
+    width: 32px;
+    height: 32px;
+    transition: 225ms ease-in-out;
+}
+
+.icon1:hover {
+    cursor: pointer;
+    opacity: 50%;
+}
+
+.icon2 {
+    width: 32px;
+    height: 32px;
+    transition: 225ms ease-in-out;
+}
+
+.top-100-percent {
+    top: 100%;
+}
+
+.top-0-pixel {
+    top: 0;
+}
+
+.detail-view-left-section::-webkit-scrollbar {
+    display: none;
+} 
+
+.detail-view-right-section-1 {
+    height: 80%;
+}
+
+.detail-view-right-section-3 {
+   
+}
+
+.detail-view-right-section-4 {
+
+}
+
+.detail-view-right-section {
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+    gap: 10px;
+}
+
+.kpi-card-body:hover {
+    transition: 225ms ease-in-out;
+    border-color: #0d6efd !important;
+}
+
+.kpi-card-body:hover {
+    background-color: #0d6efd;
+    color: white;
+    cursor: pointer;
+}
+
+.kpi-card p {
+    font-size: 12px;
+}
+
+.navigation-button {
+    border-radius: 0px;
+    background-color: #0d6efd;
+}
+
+.navigation-button .active {
+    border-radius: 0px;
+    background-color: #0242a2;
+}
+
+.time-dropdown {
+    width: 100%;
+}
+
+.persona_card {
+
+    height: 200px;
+}
+
+.persona-card .card-title, p.info {
+    font-size: 8px;
+}
+
+.Select-control {
+    background-color: black !important;
+    color: white !important;
+    font-size: 14px !important;
+    transition: 225ms ease-in-out;
+    border: solid black !important;
+}
+
+.Select-control:hover {
+    background-color: black !important;
+    border: solid rgb(100, 100, 255) !important;
+    color: white !important;
+    cursor: pointer;
+}
+
+.Select-input {
+    background-color: black ;
+    font-size: 14px;
+}
+
+.Select-value {
+    background-color: black;
+    color: white;
+}
+
+.Select-value-label {
+    color: white !important;
+    font-size: 12px !important;
+}
+
+.Select-menu-outer, .Select-menu {
+    background: black !important;
+    font-size: 14px !important;
+    color: white !important;
+}
+.Select-option {
+    background: black !important;
+    color: white !important;
+    font-size: 14px !important;
+}
+.Select-option.is-focused {
+    background: black !important;
+}
+
+table.table thead th {
+    background: #08519c;
+    color: #fff;
+    font-weight: bold;
+    position: sticky;
+    top: 0;
+}
+
+/* Gerade Zeilen */
+.table.table-hover.table-bordered.w-100 tbody tr:nth-child(even) td {
+    background-color: #e3eef9 !important;
+}
+.table.table-hover.table-bordered.w-100 tbody tr:nth-child(odd) td {
+    background-color: #c6dbef !important;
+}
+
+/* Optional: Hover-Effekt */
+table.table tbody tr:hover {
+    background-color: #6baed6 !important;
+    color: #fff;
+    transition: background 0.2s;
+} 
+
+table.table td, table.table th {
+    text-align: right;
+}
+
+@media (max-width: 768px) {
+  .detail-view-left-section, .detail-view-right-section {
+    padding: 0 !important;
+  }
+}
