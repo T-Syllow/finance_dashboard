@@ -2,3 +2,5 @@ data/*
 newData/*
 parquet_data/*
 .DS_Store
+venv/*
+__pycache__/*
