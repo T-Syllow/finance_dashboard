@@ -50,13 +50,13 @@ python3 cleanData.py
 ```bash
 python3 to_parquet.py
 ```
-Erwartetes Verhalten: im Ordner parquet_data entsteht eine "cleaned_transactions_data.parquet" und eine "gesamt_ausgaben_pro_client.parquet" Datei.
+Erwartetes Verhalten: im Ordner parquet_data entstehen "cleaned_transactions_data.parquet", "cleaned_cards_data.parquet", "cleaned_users_data.parquet" Dateien.
 
-- Führe die Datei prerender.py aus: (ersetze wenn notwendig den Pfad zur cleand_transaction_data.parquet)
+- Führe die Datei prerender.py aus: 
 ```bash
 python3 prerender.py
 ```
-Erwartetes Verhalten: im Ordner parquet_data entstehen transactions_YYYY_MM.parquet Dateien für jeden Monat und Jahr des Datensatzes.
+Erwartetes Verhalten: im Ordner parquet_data entstehen 118 transactions_YYYY_MM.parquet Dateien für jeden Monat und Jahr des Datensatzes.
 
 ### 5. Dashboard starten
 
