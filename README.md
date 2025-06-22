@@ -54,7 +54,7 @@ Erwartetes Verhalten: im Ordner parquet_data entsteht eine "cleaned_transactions
 
 - Führe die Datei prerender.py aus: (ersetze wenn notwendig den Pfad zur cleand_transaction_data.parquet)
 ```bash
-python3 to_parquet.py
+python3 prerender.py
 ```
 Erwartetes Verhalten: im Ordner parquet_data entstehen transactions_YYYY_MM.parquet Dateien für jeden Monat und Jahr des Datensatzes.
 
