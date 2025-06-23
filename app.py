@@ -42,8 +42,6 @@ COMPARE_PERIOD_OPTIONS = [
     # {"label": "Letztes Jahr", "value": "last_year"},
 ]
 
-
-###############
 # Einkommensklassen Definition (für income_category_bar_component)
 EINKOMMENSKLASSEN = [
     {"label": "Extreme Armut",           "min": 0,      "max": 14999,    "color": "#9e0142"},
@@ -55,6 +53,7 @@ EINKOMMENSKLASSEN = [
     {"label": "Superreiche / Elite",     "min": 500000, "max": 99999999, "color": "#5e4fa2"},
 ]
 
+#Farben mit ChatGPT generiert, sodass diese beim Blues Theme angelehnt sind.
 blues_dark_to_light = [
     "#08519c",  # sehr dunkelblau
     "#3182bd",  # dunkelblau
@@ -63,21 +62,7 @@ blues_dark_to_light = [
     "#deebf7"   # sehr hellblau
 ]      
 
-blues_dark_to_light_12 = [
-            "#08306b",  # sehr dunkelblau
-            "#08519c",
-            "#0b318f",
-            "#1664ad",
-            "#2171b5",
-            "#2383c1",
-            "#2b8cbe",
-            "#3182bd",
-            "#4292c6",
-            "#4fa3ca",
-            "#6baed6",
-            "#4292c6"   # nochmal ein mittlerer Ton, damit es 12 sind
-        ]
-
+# ChatGpt Funktion, um die Einkommensklassen in Farben und Labels zu konvertieren
 def get_income_category_colors_and_labels(einkommensklassen):
     color_segments = [klass["color"] for klass in einkommensklassen]
     categories = []
@@ -90,22 +75,19 @@ def get_income_category_colors_and_labels(einkommensklassen):
             label = f"{klass['label']}: {klass['min']:,} $ – {klass['max']:,} $"
         categories.append(label)
     return color_segments, categories
-##############
-##############
 
-# --- Read in data ---
+
+# Lade Daten 
 data_folder = "./newData/"
 parquet_folder = "./parquet_data/"
 transaction_file = parquet_folder + "cleaned_transactions_data.parquet"
-#transaction_data = pd.read_csv(data_folder + "cleaned_transaction_data_50k.csv", sep=',', encoding='utf-8')
-# transaction_data = pd.read_parquet(parquet_folder + "cleaned_transaction_data_50k.parquet", columns=["id","date","client_id","card_id","amount","merchant_id","merchant_city","merchant_state","mcc"])
 cards_data = pd.read_csv(data_folder + "cleaned_cards_data.csv")
 users_data = pd.read_csv(data_folder + "cleaned_users_data.csv")
 with open(data_folder + 'mcc_codes.json', 'r', encoding='utf-8') as f:
     mcc_dict = json.load(f)
 mcc_codes_data = pd.DataFrame(list(mcc_dict.items()), columns=['mcc_code', 'description'])
 
-# Annahme: Dateien heißen transactions_YYYY_MM.parquet
+# Dateien heißen transactions_YYYY_MM.parquet
 parquet_files = glob.glob(os.path.join(parquet_folder, "transactions_*.parquet"))
 
 year_months = set()
@@ -119,7 +101,7 @@ months = sorted({m for y, m in year_months})
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-
+# Layout des Dashboards:
 app.layout = dbc.Container([ 
         dcc.Store(id='timed_transaction_data'),
         dcc.Store(id='timed_branchen_transaction_data'),
@@ -193,6 +175,7 @@ app.layout = dbc.Container([
                     html.Img(src="./assets/x.png", className="icon1", id="toggle-button-close")
                 ], width=12, className="px-5 py-2 d-flex justify-content-between"),
             ], className="popup-header"),
+            # Loading Spinner, wird solange angezeigt, bis die Daten geladen sind.
                 dcc.Loading(
                     id="loading-detailview",
                     type="circle",
@@ -257,14 +240,7 @@ app.layout = dbc.Container([
         ], width=12, className="h-100 position-absolute left-0", id="popup5")
 ], fluid=True, className="body position-relative")
 
-
-
-def get_compare_period_label(value):
-    for option in COMPARE_PERIOD_OPTIONS:
-        if option["value"] == value:
-            return option["label"]
-    return value
-
+# Hilfsfunktion zum Laden der timed_transaction_data (mithilfe ChatGPT generiert 50%)
 def load_all_period_duckdb(year, month, compare_period, parquet_folder="./parquet_data/"):
     # Gleiches Perioden-Building wie oben
     periods = []
@@ -302,6 +278,7 @@ def load_all_period_duckdb(year, month, compare_period, parquet_folder="./parque
     con.close()
     return df
 
+# Hilfsfunktion zum Laden der timed_unternehmen_data (mithilfe ChatGPT generiert 50%)
 def load_unternehmen_period_duckdb(year, month, compare_period, entity, parquet_folder="./parquet_data/"):
     # Erzeuge Liste aller relevanten Parquet-Dateien
     periods = []
@@ -340,6 +317,7 @@ def load_unternehmen_period_duckdb(year, month, compare_period, entity, parquet_
     con.close()
     return df
 
+# Hilfsfunktion zum Laden der timed_branchen_data (mithilfe ChatGPT generiert 50%)
 def load_branchen_period_duckdb(year, month, compare_period, entity, parquet_folder="./parquet_data/"):
     # Erzeuge Liste aller relevanten Parquet-Dateien
     periods = []
@@ -378,6 +356,7 @@ def load_branchen_period_duckdb(year, month, compare_period, entity, parquet_fol
     con.close()
     return df
 
+# der Callback, um die timed_branchen_transaction_data zu aktualisieren:
 @app.callback(
     Output('timed_branchen_transaction_data', 'data'),
     Input('year_dropdown', 'value'),
@@ -401,6 +380,7 @@ def update_timed_branchen_transaction_data(selected_year, selected_month, compar
             return df_branche.to_dict('records')
     return []
 
+# der Callback, um die timed_unternehmen_transaction_data zu aktualisieren:
 @app.callback(
     Output('timed_unternehmen_transaction_data', 'data'),
     Input('year_dropdown', 'value'),
@@ -415,6 +395,7 @@ def update_timed_unternehmen_transaction_data(selected_year, selected_month, com
         return df.to_dict('records')
     return []
 
+# der Callback, um die timed_transaction_data zu aktualisieren:
 @app.callback(
     Output('timed_transaction_data', 'data'),
     Input('year_dropdown', 'value'),
@@ -427,6 +408,7 @@ def update_timed_transaction_data(selected_year, selected_month, compare_period)
     df = load_all_period_duckdb(selected_year, selected_month, compare_period)
     return df.to_dict('records')
 
+# Callback, um die Kartenansicht zu rendern:
 @callback(
     Output('map-container', 'children'),
     Input('timed_unternehmen_transaction_data', 'data'),
@@ -435,7 +417,7 @@ def update_timed_transaction_data(selected_year, selected_month, compare_period)
     Input('category_dropdown', 'value'),
 )
 def renderMap(timed_unternehmen_transaction_data, timed_branchen_transaction_data, entity_value, category_value):
-    # Wähle das passende, bereits gefilterte DataFrame
+    # Wähle das passende, bereits gefilterte DataFrames
     if category_value == 'Branchen':
         data = timed_branchen_transaction_data
     elif category_value == 'Unternehmen':
@@ -474,6 +456,7 @@ def renderMap(timed_unternehmen_transaction_data, timed_branchen_transaction_dat
     else:
         return dbc.Alert("Keine Daten für diese Auswahl.", color="warning")
 
+# Callback, um das Dropdown für die Entitäten (Unternehmen oder Branchen) zu aktualisieren:
 @callback(
     Output('entity_dropdown', 'options'),
     Input('category_dropdown', 'value')
@@ -488,6 +471,7 @@ def update_entity_dropdown(category):
     merchant_ids = pd.read_parquet(transaction_file, columns=['merchant_id'])['merchant_id'].drop_duplicates()
     return [{"label": str(m), "value": str(m)} for m in sorted(merchant_ids)]
 
+# Hilfsfunktion, um die KPIs auf der kleinen Karte für ein Unternehmen zu erstellen:
 def create_merchant_card(merchant_id, total_revenue, transaction_count, standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart, online_umsatz_anteil_display):
     return [
         dbc.Card([
@@ -508,7 +492,9 @@ def create_merchant_card(merchant_id, total_revenue, transaction_count, standort
         ], width=12, className=""),
     ]
 
+# Hilfsfunktion, um die Rangliste zu erstellen:
 def create_ranklist(title, content, list_id):
+    # für top 5
     if title == 'Top 5':
         return dbc.Row([
             dbc.Col([
@@ -518,6 +504,7 @@ def create_ranklist(title, content, list_id):
                 dbc.ListGroup(content, numbered=True, id=list_id, className="ranklist p-2")
             ], width=12, className="ranklist_wrapper d-flex")
         ])
+    #für flop 5
     return dbc.Row([
             dbc.Col([
                 dbc.Col([
@@ -527,10 +514,13 @@ def create_ranklist(title, content, list_id):
             ], width=12, className="ranklist_wrapper d-flex")
         ])
    
+   # Hilfsfunktion, um die rechte Seite der Startseite zu aktualisieren (Unternehmen):
 def handle_unternehmen(df_merchant, df_branche_of_merchant, entity_value):
 
+    # entity ist in dieser methode immer die merchant_id
     merchant_id = int(entity_value)
 
+    # Was passiert, wenn der Händler keine Daten hat im Zeitraum? ==> Alert Feld anzeigen!
     if df_merchant.empty:
         return dbc.Alert("Keine Daten für dieses Unternehmen verfügbar.", color="warning")
 
@@ -540,6 +530,7 @@ def handle_unternehmen(df_merchant, df_branche_of_merchant, entity_value):
         .drop_duplicates()
         .sort_values(by=['merchant_state', 'merchant_city'])
     )
+    # Umformatiere den Umsatz für die Anzeige
     total_revenue_display = f"{total_revenue:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
 
     branchenbeschreibung = "Unbekannte Branche"
@@ -572,13 +563,13 @@ def handle_unternehmen(df_merchant, df_branche_of_merchant, entity_value):
     else:
         online_umsatz_anteil_display = "n/a"
 
-
+    # Top 10 Bundesstaaten nach Umsatz
     top_10_bundesstaaten = (
         df_merchant.groupby('merchant_state')['amount']
         .sum()
         .reset_index(name='total_revenue')
         .sort_values(by='total_revenue', ascending=False)
-        .head(10)
+        .head(10) # nimm die Top 10 des DataFrames
     )
 
     # Bar-Chart erstellen
@@ -604,8 +595,10 @@ def handle_unternehmen(df_merchant, df_branche_of_merchant, entity_value):
         template="plotly_white",
     )
 
+    # übergebe alle wichtigen Informationen an die create_merchant_card HilfsFunktion
     return create_merchant_card(merchant_id, total_revenue_display, len(df_merchant), standorte, branchenbeschreibung, marktanteil_display, fig_bar_chart, online_umsatz_anteil_display)
 
+# Hilfsfunktion, um die rechte Seite der Startseite zu aktualisieren (Branchen):
 def handle_branchen(df_branche):
 
     if df_branche.empty:
@@ -615,6 +608,7 @@ def handle_branchen(df_branche):
             ]),
         ], className="ranklist_container p-2")
 
+    # Berechne den Gesamtumsatz der Branche (zunächst für jeden Händler)
     umsatz_pro_merchant = (
         df_branche.groupby("merchant_id")['amount']
         .sum()
@@ -623,10 +617,11 @@ def handle_branchen(df_branche):
         .sort_values(by="total_revenue", ascending=False)
     )
 
+    # nimm die 5 größten und 5 kleinsten Händler
     top_5 = umsatz_pro_merchant.nlargest(5, 'total_revenue')
     flop_5 = umsatz_pro_merchant.nsmallest(5, 'total_revenue')
 
-    # f"{online_umsatz_anteil:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
+    # Formatieren der Umsatzwerte für die Anzeige
     top_5['total_revenue'] = top_5['total_revenue'].map("{:,.2f} $".format).str.replace(",", "X").str.replace(".", ",").str.replace("X", ".")
     flop_5['total_revenue'] = flop_5['total_revenue'].map("{:,.2f} $".format).str.replace(",", "X").str.replace(".", ",").str.replace("X", ".")
     top_content = [
@@ -645,11 +640,13 @@ def handle_branchen(df_branche):
         for _, row in flop_5.iterrows()
     ]
 
+    # übergebe die Listgroup Items an die create_ranklist HilfsFunktion -> dort wird später eine ListGroup erstellt
     return dbc.Col([
         create_ranklist('Top 5', top_content, "top_list"),
         create_ranklist('Flop 5', flop_content, "flop_list")
     ], className="ranklist_container p-4")
 
+# Callback, um die rechte Seite der Startseite zu aktualisieren:
 @callback(
     Output('right_section', 'children'),
     Input('category_dropdown', 'value'),
@@ -658,6 +655,7 @@ def handle_branchen(df_branche):
     Input('timed_branchen_transaction_data', 'data'),
 )
 def update_right_section(category, entity_value, timed_unternehmen_transaction_data, timed_branchen_transaction_data):
+    # Prüfe ob die Daten vorhanden sind
     if timed_unternehmen_transaction_data is None or entity_value is None:
         return None
 
@@ -665,14 +663,17 @@ def update_right_section(category, entity_value, timed_unternehmen_transaction_d
     if category == 'Unternehmen':
         df_merchant = pd.DataFrame(timed_unternehmen_transaction_data)
         df_branche = pd.DataFrame(timed_branchen_transaction_data)
+        # rufe Hilfsfunktion auf, um die rechte Seite zu aktualisieren
         return handle_unternehmen(df_merchant, df_branche, entity_value)
 
     if category == 'Branchen':
         df = pd.DataFrame(timed_branchen_transaction_data)
+        # rufe Hilfsfunktion auf, um die rechte Seite zu aktualisieren
         return handle_branchen(df)
 
     return None
 
+# Callback, um die Buttons oben rechts (Auswahl der Ansichten) anzuzeigen oder zu verstecken:
 @app.callback(
     Output("toggle-button4", "className"),
     Output("toggle-button2", "className"),
@@ -685,7 +686,7 @@ def toggle_class(category):
     return "d-block toggle_button", "d-none toggle_button", "d-none toggle_button"
     
     
-
+# Callback, um das PopUp (KPI anzeigen für Unternehmen bzw. Branchen) anzuzeigen oder zu verstecken:
 @app.callback(
     Output("popup", "className"),
     Input("toggle-button", "n_clicks"),
@@ -698,6 +699,7 @@ def toggle_class(n1, n2, current_class):
     else:
         return "h-100 position-absolute left-0 col-12 top-100-percent"
     
+# Callback, um das PopUp2 (Tabellenansicht für eine Branche) anzuzeigen oder zu verstecken:
 @app.callback(
     Output("popup2", "className"),
     Input("toggle-button2", "n_clicks"),
@@ -710,6 +712,7 @@ def toggle_class2(n1, n2, current_class):
     else:
         return "h-100 position-absolute left-0 col-12 top-100-percent"
     
+# Callback, um das PopUp4 (Tabelle des Händlers) anzuzeigen oder zu verstecken:
 @app.callback(
     Output("popup4", "className"),
     Input("toggle-button4", "n_clicks"),
@@ -722,6 +725,7 @@ def toggle_class4(n1, n2, current_class):
     else:
         return "h-100 position-absolute left-0 col-12 top-100-percent"    
     
+# Callback, um das PopUp5 (Personas bei Branchen) anzuzeigen oder zu verstecken:
 @app.callback(
     Output("popup5", "className"),
     Input("toggle-button5", "n_clicks"),
@@ -734,15 +738,19 @@ def toggle_class4(n1, n2, current_class):
     else:
         return "h-100 position-absolute left-0 col-12 top-100-percent"
 
+# Hilfsfunktion, um die Daten der Branche zu verarbeiten und vorzubereiten:
 def process_branchen_data(timed_branchen_data):
     timed_branchen_data["month"] = pd.to_datetime(timed_branchen_data["date"]).dt.to_period('M')
-    # umsatz_monat_merchant.groupby('month')['Umsatz_im_Monat'].sum().reset_index()
+    # Konvertiere die 'month' Spalte in einen String, um sie später als x-Achse zu verwenden
     umsatz_monat_merchant = timed_branchen_data.groupby(["month", "merchant_id"])["amount"].sum().reset_index(name="Umsatz_im_Monat")
     umsatz_monat_merchant['month'] = umsatz_monat_merchant['month'].astype(str)  
+    # Berechne den Gesamtumsatz pro Händler im Zeitraum
     umsatz_pro_merchant = umsatz_monat_merchant.groupby("merchant_id")["Umsatz_im_Monat"].sum().reset_index(name="gesamtumsatz")
     return umsatz_monat_merchant, umsatz_pro_merchant
 
+# Hilfsfunktion, um die KPI-Karten zu erstellen:
 def create_kpi_cards(kpis):
+    # Definiere die Farben für die KPI-Karten
     blues_colors = [
         "#deebf7", "#9ecae1", "#6baed6"
     ]
@@ -759,10 +767,11 @@ def create_kpi_cards(kpis):
         for key, value in kpi.items()
     ]
 
+# Hilfsfunktion, um die Charts für die Branche zu erstellen:
 def create_branchen_charts(umsatz_monat_merchant):
     # Gruppiere nach Monat und summiere den Umsatz
     df_grouped = umsatz_monat_merchant.groupby('month')['Umsatz_im_Monat'].sum().reset_index()
-    # Sortiere Monate (optional, falls nötig)
+    # Sortiere Monate 
     df_grouped['month'] = pd.Categorical(df_grouped['month'], ordered=True)
     # Bar Chart
     fig1 = px.bar(
@@ -788,8 +797,11 @@ def create_branchen_charts(umsatz_monat_merchant):
         markers=True
     )
     fig2.update_layout(template='plotly_white')
+
+    # fig 1 = Umsatz pro Monat, fig 2 = Anzahl der Transaktionen pro Monat
     return fig1, fig2
 
+# Callback, um die KPI Anzeigen Ansicht zu rendern (Unternehmen UND Branchen):
 @app.callback(
     Output("detail-view", "children"),
     Input("category_dropdown", "value"),
@@ -797,12 +809,13 @@ def create_branchen_charts(umsatz_monat_merchant):
     Input('timed_transaction_data', 'data'),
     Input('timed_unternehmen_transaction_data', 'data'),
     Input('timed_branchen_transaction_data', 'data'),
-
 )
 def render_detailview(category, entity, timed_transaction_data, timed_unternehmen_data, timed_branchen_data):
+    # Prüfe ob die Daten vorhanden sind
     if timed_transaction_data is None:
         return dbc.Alert("Keine Transaktionsdaten verfügbar.", color="warning")
 
+    # Konvertiere die Daten in DataFrames
     df = pd.DataFrame(timed_transaction_data)
     timed_unternehmen_data = pd.DataFrame(timed_unternehmen_data)
     timed_branchen_data = pd.DataFrame(timed_branchen_data)
@@ -832,15 +845,13 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
         EinzigartigeKäufer = timed_branchen_data["client_id"].nunique()
 
         #Marktkapitalisierung berechnet
-
         Marktkapitalisierung = umsatz_pro_merchant["gesamtumsatz"].sum()
         Marktkapitalisierung = f"{Marktkapitalisierung:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
 
         # =====================================================================================
 
 
-        #Durchschnitt der Transaktionen Pro Käufer - noch nicht fertig
-
+        #Durchschnitt der Transaktionen Pro Käufer
         GesamtTransaktionen = timed_branchen_data["merchant_id"].count()
         EinzigartigeKäufer = timed_branchen_data["client_id"].nunique()
         DurchschnittTransaktionenProKäufer = GesamtTransaktionen / EinzigartigeKäufer
@@ -851,17 +862,15 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
         # =====================================================================================
 
         #Durchschnittliche Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum
-
         DurchschnittTransaktionshöhe = timed_branchen_data['amount'].mean()
         DurchschnittTransaktionshöhe = f"{DurchschnittTransaktionshöhe:,.2f} $ ".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
         # =====================================================================================
         
-        #Consumer Money Spent (%)
-
+        #Consumer Money Spent (%) - Ein einzelner Wert, der den durchschnittlichen % Anteil angibt, den ein Kunde insgesamt ausgegeben hat in der Entität.
         gesamt_ausgaben_pro_client = df.groupby("client_id")["amount"].sum().reset_index(name="gesamt_ausgaben")
-        # Ein einzelner Wert, der den durchschnittlichen Betrag angibt, den ein Kunde insgesamt ausgegeben hat.
+        
         Durchschnitt_gesamt = gesamt_ausgaben_pro_client['gesamt_ausgaben'].mean()
         BranchenAusgabenProClient = timed_branchen_data.groupby("client_id")["amount"].sum()
         DurchschnittBranche = BranchenAusgabenProClient.mean()
@@ -872,7 +881,7 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
 
         # =====================================================================================
 
-        # Umsatzwachstum: Nur Startmonat vs. Endmonat vergleichen
+        # Umsatzwachstum: Nur Startmonat vs. Endmonat vergleichen 
         umsatzwachstum_display = "n/a"
         if not timed_branchen_data.empty and 'date' in timed_branchen_data.columns:
             timed_branchen_data['date'] = pd.to_datetime(timed_branchen_data['date'])
@@ -882,16 +891,19 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
             min_month = timed_branchen_data['year_month'].min()
             max_month = timed_branchen_data['year_month'].max()
 
-            # Umsatz im Start- und Endmonat berechnen
+            # Umsatz im Start- und Endmonat berechnen:
             umsatz_start = timed_branchen_data[timed_branchen_data['year_month'] == min_month]['amount'].sum()
             umsatz_end = timed_branchen_data[timed_branchen_data['year_month'] == max_month]['amount'].sum()
 
             if umsatz_start > 0:
                 umsatzwachstum = ((umsatz_end - umsatz_start) / umsatz_start) * 100
+                # Formatiere ausgabe für Umsatzwachstum:
+                # Ersetze Komma durch Punkt und Punkt durch Komma für die Anzeige
                 umsatzwachstum_display = f"{umsatzwachstum:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
             else:
                 umsatzwachstum_display = "n/a"
 
+        # Liste der KPIs: 
         kpis = [
                 {'Marktkapitalisierung': Marktkapitalisierung},   # Berechnet die Marktkapitalisierung 
                 {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöhe},    # Berechnet die durchschn. Transaktionshöhe einer Transaktion in dem ausgewählten Zeitraum in Euro 
@@ -903,8 +915,10 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
         ]
 
         return [
+            # KPI-Karten erstellen -> übergebe alle KPIs an die create_kpi_cards HilfsFunktion
                 dbc.Col(create_kpi_cards(kpis), md=3, sm=12, className="detail-view-left-section d-flex flex-wrap justify-content-start align-content-start gap-2 overflow-y-scroll"),
                 dbc.Col([
+                    # graph1 = in create_branchen_charts; graph2 = in create_branchen_charts HILFSFUNKTION erstellt worden.
                         dcc.Graph(figure=fig1, id="card-content1", className="card-text w-100", style={"height": "350px"}),
                         dcc.Graph(figure=fig2, id="card-content2", className="card-text w-100", style={"height": "350px"}),
                 ], md=9, sm=12, className="detail-view-right-section"),
@@ -981,6 +995,7 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
         else:
             ErsterPreisbereich = ZweiterPreisbereich = DritterPreisbereich = 0
 
+        # Marktanteil Kreisdiagramm erstellen:
         fig_pie = px.pie(
             names=["Marktkapitalisierung", "Gesamtkapitalisierung je Branche"],
             values=[Marktkapitalisierung, GesamtMarktkapitalisierungBranche],
@@ -989,7 +1004,7 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
         )
         
         
-        #2. Kreisdiagramm 
+        # Preisbereiche Kreisdiagramm erstellen:
         fig_pie_2 = px.pie(
             names=["bis 50$", "50$ - 200$", "über 200$"],
             values=[ErsterPreisbereich, ZweiterPreisbereich, DritterPreisbereich],
@@ -999,17 +1014,17 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
         )
 
 
-        # Umsatzwachstum: Nur Startmonat vs. Endmonat vergleichen
+        #Umsatzwachstum: Nur Startmonat vs. Endmonat vergleichen
         umsatzwachstum_display = "n/a"
         if not timed_unternehmen_data.empty and 'date' in timed_unternehmen_data.columns:
             timed_unternehmen_data['date'] = pd.to_datetime(timed_unternehmen_data['date'])
             timed_unternehmen_data['year_month'] = timed_unternehmen_data['date'].dt.to_period('M')
 
-            # Finde Start- und Endmonat im aktuellen Zeitraum
+            #Finde Start- und Endmonat im aktuellen Zeitraum
             min_month = timed_unternehmen_data['year_month'].min()
             max_month = timed_unternehmen_data['year_month'].max()
 
-            # Umsatz im Start- und Endmonat berechnen
+            # Umsatz im Start und Endmonat berechnen:
             umsatz_start = timed_unternehmen_data[timed_unternehmen_data['year_month'] == min_month]['amount'].sum()
             umsatz_end = timed_unternehmen_data[timed_unternehmen_data['year_month'] == max_month]['amount'].sum()
 
@@ -1018,8 +1033,8 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
                 umsatzwachstum_display = f"{umsatzwachstum:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
             else:
                 umsatzwachstum_display = "n/a"
-        # =====================
 
+        # Liste der KPIs:
         kpis = [
             {'Marktkapitalisierung': MarktkapitalisierungDisplay},
             {'durchschn. Transaktionshöhe': DurchschnittTransaktionshöheDisplay},
@@ -1032,10 +1047,12 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
 
         return [
             dbc.Col(
+                # Erstelle die KPI-Karten und übergebe die KPIs an die create_kpi_cards HilfsFunktion
                 create_kpi_cards(kpis)
             , md=3, sm=12, className="detail-view-left-section detail-view-kpis d-flex flex-wrap justify-content-start align-content-start gap-2 overflow-y-scroll" ),
             dbc.Col([
                 dbc.Col([
+                    # Graph für den Umsatz pro Monat
                     dcc.Graph(figure=bar_umsatz_pro_monat, className="w-100", style={"height": "400px"}),
                 ], width=12, className="detail-view-right-section-3"),
                 dbc.Col([
@@ -1053,6 +1070,7 @@ def render_detailview(category, entity, timed_transaction_data, timed_unternehme
             ], md=9, sm=12, className="detail-view-right-section")
         ]
 
+# Callback, um die Tabellenansicht für eine Branche anzuzeigen:
 @app.callback(
     Output("detail-view2", "children"),
     Input("category_dropdown", "value"),
@@ -1066,6 +1084,7 @@ def render_detailview2(category, timed_branchen_data):  # Tabelle für Branchen 
         return html.Div("Keine Daten verfügbar.")
 
     df = pd.DataFrame(timed_branchen_data)
+    # bereite kpi_df für die Tabellenansicht vor: (Jede Entität)
     kpi_df = df.groupby("merchant_id").agg(
         gesamtumsatz=("amount", "sum"),
         anzahl_transaktionen=("amount", "count"),
@@ -1083,6 +1102,8 @@ def render_detailview2(category, timed_branchen_data):  # Tabelle für Branchen 
     kpi_df["durchschn_transaktionshoehe"] = kpi_df["durchschn_transaktionshoehe"].map(lambda x: f"{x:,.2f} $".replace(",", "X").replace(".", ",").replace("X", "."))
     kpi_df["durchschn_transaktionen_pro_kaeufer"] = kpi_df["durchschn_transaktionen_pro_kaeufer"].map(lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
+    # Definiere die Spalten für die Tabelle
+    # Spaltennamen und Übersetzungen
     columns = [
         ("merchant_id", "Händler-ID"),
         ("gesamtumsatz", "Gesamtumsatz"),
@@ -1094,11 +1115,14 @@ def render_detailview2(category, timed_branchen_data):  # Tabelle für Branchen 
 
     table = html.Table([
         html.Thead([
+            # Erstelle die Tabellenüberschriften
             html.Tr([html.Th(name, style={"textAlign":"right"}) for _, name in columns])
         ]),
         html.Tbody([
+            # Erstelle die Tabellenzeilen
             html.Tr([
                 html.Td(row[col], style={"textAlign":"right"}) for col, _ in columns
+                # 
             ]) for _, row in kpi_df.iterrows()
         ])
     ], className="table table-hover table-bordered w-100")
@@ -1108,6 +1132,7 @@ def render_detailview2(category, timed_branchen_data):  # Tabelle für Branchen 
         table
     ], className="w-100")
 
+# Callback, um die Tabellenansicht für einen Händler anzuzeigen:
 @app.callback(
     Output("detail-view4", "children"),
     Input("category_dropdown", "value"),
@@ -1115,25 +1140,30 @@ def render_detailview2(category, timed_branchen_data):  # Tabelle für Branchen 
 )
 def render_detailview4(category, timed_unternehmen_data): # Tabelle für Unternehmen mit KPIs
     if category == 'Unternehmen':
+        # Fange leere Daten ab
         if timed_unternehmen_data is None or len(timed_unternehmen_data) == 0:
             return html.Div("Keine Daten verfügbar.")
 
+        # Konvertiere die Daten in einen DataFrame
         df = pd.DataFrame(timed_unternehmen_data)
-        # Gruppiere nach Bundesstaat
+        # Bereite kpi_df für die Tabellenansicht vor: (Jeder Bundesstaat)
         kpi_df = df.groupby("merchant_state").agg(
             gesamtumsatz=("amount", "sum"),
             anzahl_transaktionen=("amount", "count"),
             durchschn_transaktionshoehe=("amount", "mean"),
             einzigartige_kaeufer=("client_id", "nunique")
         ).reset_index()
+        # Berechne die durchschnittliche Anzahl an Transaktionen pro Käufer
         kpi_df["durchschn_transaktionen_pro_kaeufer"] = kpi_df["anzahl_transaktionen"] / kpi_df["einzigartige_kaeufer"]
         #Sortiere nach Umsatz (absteigend)
         kpi_df = kpi_df.sort_values(by="gesamtumsatz", ascending=False)
-        # Formatierungen
+        # Formatierungen (ChatGPT erstellt 100% in den nächsten 3 Zeilen mit lambda)
         kpi_df["gesamtumsatz"] = kpi_df["gesamtumsatz"].map(lambda x: f"{x:,.2f} $".replace(",", "X").replace(".", ",").replace("X", "."))
         kpi_df["durchschn_transaktionshoehe"] = kpi_df["durchschn_transaktionshoehe"].map(lambda x: f"{x:,.2f} $".replace(",", "X").replace(".", ",").replace("X", "."))
         kpi_df["durchschn_transaktionen_pro_kaeufer"] = kpi_df["durchschn_transaktionen_pro_kaeufer"].map(lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
+    # Definiere die Spalten für die Tabelle
+    # Spaltennamen und Übersetzungen
         columns = [
             ("merchant_state", "Bundesstaat"),
             ("gesamtumsatz", "Gesamtumsatz"),
@@ -1145,9 +1175,11 @@ def render_detailview4(category, timed_unternehmen_data): # Tabelle für Unterne
 
         table = html.Table([
                     html.Thead([
+                        # Erstelle die Tabellenüberschriften
                         html.Tr([html.Th(name) for _, name in columns])
                     ]),
                     html.Tbody([
+                        # Erstelle die Tabellenzeilen
                         html.Tr([
                             html.Td(row[col]) for col, _ in columns
                         ]) for _, row in kpi_df.iterrows()
@@ -1156,11 +1188,13 @@ def render_detailview4(category, timed_unternehmen_data): # Tabelle für Unterne
 
         return html.Div([
             html.Div("KPIs je Bundesstaat für das Unternehmen", className="fw-bold mb-2"),
+            # Füge die Tabelle in die Detailansicht ein
             table
         ], className="w-100")
 
 
-# Personas für Branchen 
+# Diese Callback-Funktion rendert die Personas für die Branchenansicht, wenn der Button "Personas anzeigen" geklickt wird.
+# Sie zeigt verschiedene KPIs und Diagramme an,
 @app.callback(
     Output("detail-view5", "children"),
     Input("category_dropdown", "value"),
@@ -1171,12 +1205,15 @@ def render_detailview4(category, timed_unternehmen_data): # Tabelle für Unterne
     Input("month_dropdown", "value"),
 )
 def render_detailview5(category, timed_branchen_data, timed_transaction_data, entity, selected_year, selected_month):
+    # Prüfe ob die Daten vorhanden sind
     if timed_branchen_data is None:
         return dbc.Alert("Keine Transaktionsdaten verfügbar.", color="warning")
-
+    
+    # Konvertiere die Daten in DataFrames
     timed_branchen_data = pd.DataFrame(timed_branchen_data)
     timed_transaction_data = pd.DataFrame(timed_transaction_data)
 
+    # Prüfe ob die Spalte 'date' in den DataFrames vorhanden ist und konvertiere sie in datetime. Es gab ohne diesen Schritt Probleme mit der Darstellung der Daten.
     if 'date' in timed_branchen_data.columns:
         timed_branchen_data['date'] = pd.to_datetime(timed_branchen_data['date'])
     else:
@@ -1189,17 +1226,18 @@ def render_detailview5(category, timed_branchen_data, timed_transaction_data, en
 
 
     if category == 'Branchen' and timed_branchen_data is not None:
+        # erstelle die Persona Karten Layouts: (CHATGPT: die Titelbeschreibungen haben wir mit ChatGPT erstellt - also im H6 Element.)
         persona_cards = dbc.Row([
-
             dbc.Col([
                 dbc.Card([
                     dbc.CardBody([
                         html.H6("Durchschnittsalter der Kunden", className="card-title"),
                         html.P(
-                            f"{get_average_age_in_branche(selected_year, selected_month, entity, timed_branchen_data)} Jahre",
+                            f"{get_average_age_in_branche(selected_year, selected_month, timed_branchen_data)} Jahre",
                             className="fs-4 fw-bold"
                         ),
                         dcc.Graph(
+                            # Histogramm mit Altersverteilung der Kunden in der Branche
                             figure=create_age_histogram(selected_year, selected_month, entity, timed_branchen_data),
                             config={"displayModeBar": False},
                             style={"height": "200px"},
@@ -1217,6 +1255,7 @@ def render_detailview5(category, timed_branchen_data, timed_transaction_data, en
                             avg_income := calculate_avg_income_for_branche(timed_branchen_data),
                             className="card-text fw-bold"
                         ),
+                        # HTML basiertes Balkendiagramm mit Einkommensverteilung
                         income_category_bar_component(avg_income, timed_branchen_data)
                     ], className="persona-card")
                 ], className="h-100")
@@ -1229,8 +1268,9 @@ def render_detailview5(category, timed_branchen_data, timed_transaction_data, en
                             calculate_mean_monthly_spending_per_customer(timed_branchen_data),
                             className="card-text"
                         ),
+                        # Kreisdiagramm mit Verteilung der Ausgaben eines Kunden in der Branche
                         dcc.Graph(
-                            figure=get_customer_spending_distribution_pie_chart(entity, timed_branchen_data, timed_transaction_data),
+                            figure=get_customer_spending_distribution_pie_chart(entity, timed_transaction_data),
                             config={"displayModeBar": False},
                             style={"height": "200px"},
                             className="w-100"
@@ -1243,6 +1283,7 @@ def render_detailview5(category, timed_branchen_data, timed_transaction_data, en
                 dbc.Card([
                     dbc.CardBody([
                         html.H6("Kartennutzung nach Typ & Marke", className="card-title"),
+                        # Balkendiagramm mit Kartennutzung nach Typ und Marke
                         dcc.Graph(figure=plot_card_type_distribution_by_brand(timed_branchen_data), style={"height": "300px"}, className="w-100"),
                     ], className="persona-card")
                 ], className="h-100")
@@ -1251,6 +1292,7 @@ def render_detailview5(category, timed_branchen_data, timed_transaction_data, en
                 dbc.Card([
                     dbc.CardBody([
                         html.H6("Geschlechterverteilung", className="card-title"),
+                        # Kreisdiagramm mit Geschlechterverteilung in der Branche
                         dcc.Graph(figure=get_dominant_gender_in_branche(timed_branchen_data), config={"displayModeBar": False}, style={"height": "300px"}, className="w-100"),
                     ], className="persona-card")
                 ], className="h-100")
@@ -1259,6 +1301,7 @@ def render_detailview5(category, timed_branchen_data, timed_transaction_data, en
                 dbc.Card([
                     dbc.CardBody([
                         html.H6("Durchschnittlicher Credit Score", className="card-title"),
+                        # Credit Score Anzeige
                         dcc.Graph(
                             figure=erstelle_kredit_score_anzeige(get_average_credit_score_in_branche(timed_branchen_data)),
                             config={"displayModeBar": False},
@@ -1271,9 +1314,12 @@ def render_detailview5(category, timed_branchen_data, timed_transaction_data, en
         ], className="g-2")
 
         return dbc.Col([
+            # füge das Persona Layout in die Detailansicht ein
             persona_cards,
         ], width=12, className="d-flex flex-column gap-3 p-3 pb-5")
 
+# Dieser Callback aktualisiert die Titel der Detailansicht basierend auf den ausgewählten Filtern
+# und dem ausgewählten Zeitraum. Er wird aufgerufen, wenn sich die Dropdown-Werte ändern
 @app.callback(
     Output("branche_title", "children"),
     Output("branche_title2", "children"),
@@ -1288,6 +1334,7 @@ def render_detailview5(category, timed_branchen_data, timed_transaction_data, en
 def update_detailView(category, entity, year, month, compare_period):
     # Zeitraum-Logik anpassen
     zeitraum = ""
+    # ChatGPT erstellt: komplette if-else Struktur
     if year and month and compare_period:
         year = int(year)
         month = int(month)
@@ -1320,6 +1367,7 @@ def update_detailView(category, entity, year, month, compare_period):
     else:
         zeitraum = ""
 
+    # ab hier wieder OHNE ChatGPT erstellt:
     if category == 'Branchen' and entity is not None:
         beschreibung = mcc_codes_data.loc[
             mcc_codes_data["mcc_code"] == entity, "description"
@@ -1335,7 +1383,7 @@ def update_detailView(category, entity, year, month, compare_period):
         return value, value, value, value
     return "", "", "", ""
 
-
+# Hilfsfunktion, um das durchschnittliche Alter der Kunden in einer Branche zu berechnen
 def calculate_avg_income_for_branche(timed_branchen_data):
 
     users_data['id'] = users_data['id'].astype(str)
@@ -1351,13 +1399,15 @@ def calculate_avg_income_for_branche(timed_branchen_data):
 
     t_income = int(avg_income * 100) / 100
 
-    # Ergebnis mit $ zurückgeben
+    # Ergebnis mit $ zurückgeben und maximal 2 Nachkommastellen
     return f"{t_income:.2f} $"
     
+# Hilfsfunktion, um das durchschnittliche Alter der Kunden in einer Branche zu berechnen
 def income_category_bar_component(avg_income_str, timed_branchen_data):
     if avg_income_str == "Keine Daten":
         return html.P("Keine Daten verfügbar.")
 
+    # ChatGPT
     income_value = float(avg_income_str.replace(" $", "").replace(",", ""))
 
     if timed_branchen_data.empty:
@@ -1369,7 +1419,8 @@ def income_category_bar_component(avg_income_str, timed_branchen_data):
 
     if matched_users.empty or 'per_capita_income' not in matched_users.columns:
         return html.P("Keine Nutzerinformationen verfügbar.")
-
+    
+    # ChatGPT
     # klassifiziere pro Kunde → in welche Klasse fällt er
     def assign_class(income):
         for i, klass in enumerate(EINKOMMENSKLASSEN):
@@ -1390,6 +1441,7 @@ def income_category_bar_component(avg_income_str, timed_branchen_data):
     cumulative_percent = 0
     triangle_position_percent = 0
 
+    # CHATGPT erstellt. komplette for-Schleife
     for idx, klass in enumerate(EINKOMMENSKLASSEN):
         class_percent_span = class_percents.get(idx, 0)
 
@@ -1404,6 +1456,7 @@ def income_category_bar_component(avg_income_str, timed_branchen_data):
         else:
             cumulative_percent += class_percent_span
 
+    # CHATGPT erstellt. komplette for-Schleife
     # Skalenanzeige
     color_bars = []
     for idx, klass in enumerate(EINKOMMENSKLASSEN):
@@ -1422,6 +1475,7 @@ def income_category_bar_component(avg_income_str, timed_branchen_data):
             )
         )
 
+    # Return ebenfalls Chatgpt erstellt.
     return html.Div([
         html.Div([
             html.Div(color_bars, style={"display": "flex", "width": "100%"}),
@@ -1441,6 +1495,7 @@ def income_category_bar_component(avg_income_str, timed_branchen_data):
         ], style={"paddingLeft": "1rem", "marginTop": "10px"})
     ])
 
+# Hilfsfunktion, um das durchschnittliche Alter der Kunden in einer Branche zu berechnen
 def calculate_mean_monthly_spending_per_customer(timed_branchen_data):
 
     if timed_branchen_data.empty:
@@ -1469,12 +1524,13 @@ def calculate_mean_monthly_spending_per_customer(timed_branchen_data):
 
     return f"{truncated:.2f} $"
 
-def get_customer_spending_distribution_pie_chart(current_mcc_code, timed_branchen_data, timed_transaction_data):
+# Hilfsfunktion, um die Verteilung der Ausgaben eines Kunden in der Branche als Kreisdiagramm darzustellen
+def get_customer_spending_distribution_pie_chart(current_mcc_code, timed_transaction_data):
     if timed_transaction_data.empty:
         return go.Figure()
     
 
-    #  Kunden filtern → nur Kunden aktiv in aktueller Branche
+    #  Kunden filtern: nur Kunden aktiv in aktueller Branche
     df_branche = timed_transaction_data[timed_transaction_data['mcc'] == int(current_mcc_code)]
     kunden_in_branche = df_branche['client_id'].unique()
 
@@ -1495,7 +1551,7 @@ def get_customer_spending_distribution_pie_chart(current_mcc_code, timed_branche
     total_spending_client_mcc['active_months'] = total_spending_client_mcc['client_id'].map(active_months_per_client)
     total_spending_client_mcc['monthly_avg'] = total_spending_client_mcc['amount'] / total_spending_client_mcc['active_months']
 
-    # Durchschnitt Monatsausgabe pro MCC → über alle Kunden
+    # Durchschnitt Monatsausgabe pro MCC: über alle Kunden
     avg_monthly_spending_mcc = total_spending_client_mcc.groupby('mcc')['monthly_avg'].mean().reset_index()
 
     total_avg_spending = avg_monthly_spending_mcc['monthly_avg'].sum()
@@ -1537,6 +1593,7 @@ def get_customer_spending_distribution_pie_chart(current_mcc_code, timed_branche
     else:
         blues_colors = [px.colors.sample_colorscale("Blues", [0.5])[0]]
 
+    # Erstelle das Kreisdiagramm mit Ausgaben der Kunden in der Branche
     fig = go.Figure(
         data=[go.Pie(
             labels=labels,
@@ -1562,9 +1619,9 @@ def get_customer_spending_distribution_pie_chart(current_mcc_code, timed_branche
     return fig
 
 
-
+# Hilfsfunktion, um die Geschlechterverteilung in einer Branche als Kreisdiagramm darzustellen
 def get_dominant_gender_in_branche(timed_branchen_data):
-   
+   # Bugfixing: Konvertiere die 'id' Spalte in einen String
     users_data['id'] = users_data['id'].astype(str)
 
     # Wenn keine Transaktionen
@@ -1601,6 +1658,7 @@ def get_dominant_gender_in_branche(timed_branchen_data):
         "Männlich": male / total * 100,
         "Weiblich": female / total * 100
     }
+    # erstelle Kuchendiagramm mit Geschlechterverteilung
     fig = px.pie(
         names=list(percents.keys()),
         values=list(percents.values()),
@@ -1609,7 +1667,8 @@ def get_dominant_gender_in_branche(timed_branchen_data):
     fig.update_traces(textposition='inside', textinfo='percent+label')
     return fig
 
-def get_average_age_in_branche(selected_year, selected_month, mcc_code, timed_branchen_data):
+# Hilfsfunktion, um das durchschnittliche Alter der Kunden in einer Branche zu berechnen
+def get_average_age_in_branche(selected_year, selected_month, timed_branchen_data):
     df = timed_branchen_data
     users_data['id'] = users_data['id'].astype(str)
 
@@ -1622,6 +1681,7 @@ def get_average_age_in_branche(selected_year, selected_month, mcc_code, timed_br
     if 'birth_year' not in matched_users.columns or 'birth_month' not in matched_users.columns:
         return None
 
+    # Konvertiere Geburtsjahr und -monat in ein Datum beginnend mit dem ersten Tag des Monats
     matched_users['birthdate'] = pd.to_datetime(
         matched_users['birth_year'].astype(str) + "-" +
         matched_users['birth_month'].astype(str).str.zfill(2) + "-01",
@@ -1633,6 +1693,7 @@ def get_average_age_in_branche(selected_year, selected_month, mcc_code, timed_br
         return None
 
     # Nutze das ausgewählte Jahr und den Monat als Referenzdatum
+    # ChatGPT: try und except Block, um Fehler bei der Datumskonvertierung abzufangen
     try:
         reference_date = pd.Timestamp(year=int(selected_year), month=int(selected_month), day=1)
     except Exception:
@@ -1642,30 +1703,39 @@ def get_average_age_in_branche(selected_year, selected_month, mcc_code, timed_br
 
     if matched_users['age'].empty:
         return None
-
+    # Berechne das durchschnittliche Alter
     mean_age = matched_users['age'].mean()
+    # gebe es als Zahl mit 2 Nachkommastellen zurück
     return int(mean_age * 100) / 100
 
+# Hilfsfunktion, um ein Histogramm des Alters der Kunden in einer Branche zu erstellen
 def create_age_histogram(selected_year, selected_month, mcc_code, timed_branchen_data):
+    # Bugfixing: Konvertiere die 'date' Spalte in datetime und 'id' Spalte in String
     timed_branchen_data['date'] = pd.to_datetime(timed_branchen_data['date'])
     users_data['id'] = users_data['id'].astype(str)
 
+    #prüfe ob die Daten vorhanden sind
     if timed_branchen_data.empty:
         return go.Figure()
-
+    
+    # hole die passenden User-Daten
     unique_clients = timed_branchen_data['client_id'].astype(str).unique()
     matched_users = users_data[users_data['id'].isin(unique_clients)]
 
+    # Wenn keine Nutzer oder Geburtsdaten, dann leeres Diagramm zurückgeben
     if 'birth_year' not in matched_users.columns or 'birth_month' not in matched_users.columns:
         return go.Figure()
 
+    # Konvertiere Geburtsjahr und -monat in ein Datum beginnend mit dem ersten Tag des Monats
     matched_users['birthdate'] = pd.to_datetime(
         matched_users['birth_year'].astype(str) + "-" +
         matched_users['birth_month'].astype(str).str.zfill(2) + "-01",
         errors='coerce'
     )
+    # Entferne Zeilen ohne Geburtsdatum
     matched_users = matched_users[matched_users['birthdate'].notna()]
 
+    # Wenn keine Nutzer mit Geburtsdatum, dann leeres Diagramm zurückgeben
     if matched_users.empty:
         return go.Figure()
 
@@ -1675,8 +1745,10 @@ def create_age_histogram(selected_year, selected_month, mcc_code, timed_branchen
     except Exception:
         return go.Figure()
 
+    # Berechne das Alter der Nutzer (ChatGPT)
     matched_users['age'] = matched_users['birthdate'].apply(lambda b: (reference_date - b).days // 365)
 
+    # erstelle Histogramm mit Altersverteilung
     fig = px.histogram(
         matched_users,
         x='age',
@@ -1693,9 +1765,10 @@ def create_age_histogram(selected_year, selected_month, mcc_code, timed_branchen
     return fig
 
 
-
+# Hilfsfunktion, um den durchschnittlichen Credit Score in einer Branche zu berechnen
 def get_average_credit_score_in_branche(timed_branchen_data):
 
+    # Bugfixing: Konvertiere die 'id' Spalte in einen String
     users_data['id'] = users_data['id'].astype(str)
 
     # Wenn keine Daten, dann nichts zurückgeben
@@ -1726,10 +1799,8 @@ def get_average_credit_score_in_branche(timed_branchen_data):
 def erstelle_kredit_score_anzeige(kredit_score_wert):
     if kredit_score_wert is None:
         kredit_score_wert = 0
-        kredit_score_beschriftung = "Keine Daten"
-    else:
-        kredit_score_beschriftung = f"{kredit_score_wert} von 850"
-
+        
+    # mithilfe von CoPilot erstellt - Daten sinnvoll eingesetzt. 
     diagramm = go.Figure(go.Indicator(
         mode = "gauge+number",
         value = kredit_score_wert,
@@ -1754,7 +1825,7 @@ def erstelle_kredit_score_anzeige(kredit_score_wert):
 
     return diagramm
 
-
+# Hilfsfunktion, um die Kartennutzung nach Typ und Marke in einer Branche darzustellen
 def plot_card_type_distribution_by_brand(timed_branchen_data , show_percentage=False):
 
     # Wenn keine Daten vorhanden sind, gib leere Grafik zurück
